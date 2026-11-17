@@ -126,6 +126,22 @@
   .leaflet-container{font-family:inherit}
   .setrow{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin-top:12px;font-size:13px;color:var(--mute)}
   select{font:inherit;font-size:14px;color:var(--txt);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:7px 8px;width:100%}
+  /* ===== Visual_Concentration : affichage paysage (début) ===== */
+  body.vc-on{overflow:hidden}
+  #vcView{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);border:5px solid transparent;transition:background .2s,border-color .2s}
+  #vcView[hidden]{display:none}
+  #vcView.alarm{border-color:var(--bad);background:#2a0f14}
+  .vc-conc{font-size:min(44vh,21vw);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;transition:color .2s,opacity .2s}
+  .vc-conc.zero{color:var(--ok)} .vc-conc.pos{color:var(--warn)} .vc-conc.alarm{color:var(--bad)} .vc-conc.idle{opacity:.35}
+  .vc-unit{font-size:6vh;color:var(--mute);margin-top:1vh}
+  .vc-info{font-size:4.6vh;color:var(--mute);margin-top:3vh;text-align:center}
+  .vc-info b{color:var(--txt)}
+  #vcMin{position:absolute;top:14px;right:14px}
+  #vcPump{position:absolute;bottom:14px;right:14px}
+  #vcOpen{position:fixed;right:14px;bottom:14px;z-index:5;box-shadow:0 2px 12px rgba(0,0,0,.5)}
+  #vcOpen[hidden]{display:none}
+  /* ===== Visual_Concentration (fin) ===== */
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
@@ -245,6 +261,17 @@
   </section>
 </main>
 
+<!-- ===== Visual_Concentration : affichage paysage (début) ===== -->
+<div id="vcView" hidden>
+  <button id="vcMin" class="sec small" data-i18n="vc.minimize"></button>
+  <div id="vcConc" class="vc-conc">—</div>
+  <div class="vc-unit" id="vcUnit"></div>
+  <div class="vc-info" id="vcInfo"></div>
+  <button id="vcPump" class="sec small"></button>
+</div>
+<button id="vcOpen" class="small" hidden data-i18n="vc.open"></button>
+<!-- ===== Visual_Concentration (fin) ===== -->
+
 <!-- Démarrage de mission -->
 <div class="modal" id="dlgStart" hidden>
   <div class="sheet">
@@ -301,7 +328,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.0.0';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.1.0';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm·m';              // unité affichée (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -522,7 +549,8 @@ const I18N = {
   "cursorInfo": "{t} · {c} · {p}",
   "posUnknown": "position inconnue",
   "noSamples": "Pas de mesures enregistrées pour cette mission.",
-  "chartMission": "Mission : {n}"
+  "chartMission": "Mission : {n}",
+  "vc.minimize": "⤡ Réduire", "vc.open": "⛶ Concentration"
  },
  "en": {
   "state.idle": "Disconnected", "state.searching": "Searching…", "state.connecting": "Connecting…",
@@ -665,7 +693,8 @@ const I18N = {
   "cursorInfo": "{t} · {c} · {p}",
   "posUnknown": "position unknown",
   "noSamples": "No measurements recorded for this mission.",
-  "chartMission": "Mission: {n}"
+  "chartMission": "Mission: {n}",
+  "vc.minimize": "⤡ Minimise", "vc.open": "⛶ Concentration"
  },
  "de": {
   "state.idle": "Getrennt", "state.searching": "Suche…", "state.connecting": "Verbinden…",
@@ -800,7 +829,8 @@ const I18N = {
   "cursorInfo": "{t} · {c} · {p}",
   "posUnknown": "Position unbekannt",
   "noSamples": "Für diesen Einsatz wurden keine Messwerte gespeichert.",
-  "chartMission": "Einsatz: {n}"
+  "chartMission": "Einsatz: {n}",
+  "vc.minimize": "⤡ Verkleinern", "vc.open": "⛶ Konzentration"
  },
  "es": {
   "state.idle": "Desconectado", "state.searching": "Buscando…", "state.connecting": "Conectando…",
@@ -935,7 +965,8 @@ const I18N = {
   "cursorInfo": "{t} · {c} · {p}",
   "posUnknown": "posición desconocida",
   "noSamples": "No hay mediciones registradas para esta misión.",
-  "chartMission": "Misión: {n}"
+  "chartMission": "Misión: {n}",
+  "vc.minimize": "⤡ Reducir", "vc.open": "⛶ Concentración"
  },
  "it": {
   "state.idle": "Disconnesso", "state.searching": "Ricerca…", "state.connecting": "Connessione…",
@@ -1070,7 +1101,8 @@ const I18N = {
   "cursorInfo": "{t} · {c} · {p}",
   "posUnknown": "posizione sconosciuta",
   "noSamples": "Nessuna misura registrata per questa missione.",
-  "chartMission": "Missione: {n}"
+  "chartMission": "Missione: {n}",
+  "vc.minimize": "⤡ Riduci", "vc.open": "⛶ Concentrazione"
  }
 };
 const LANG_NAMES = { fr: 'Français', en: 'English', de: 'Deutsch', es: 'Español', it: 'Italiano' };
@@ -1507,6 +1539,7 @@ function tick() {
   }
   if (mission) $('sDur').textContent = fmtDur(Date.now() - mission.start);
   drawChart();
+  vcRender();   // Visual_Concentration
 }
 setInterval(tick, 250);
 
@@ -2535,6 +2568,50 @@ function startDemo() {
   onLinkReady();
 }
 function stopDemo() { clearInterval(demoTimer); demoTimer = null; stopTimers(); uartName = ''; setState('idle'); }
+
+/* =====================================================================
+   Visual_Concentration : téléphone en paysage -> plein écran concentration
+   (début du bloc ; pour retirer l'option, supprimer les blocs marqués
+   « Visual_Concentration » dans le CSS, le HTML, ici et l'appel dans tick())
+   ===================================================================== */
+const VC_MQ = matchMedia('(orientation: landscape) and (max-height: 600px)');   // paysage sur téléphone
+let vcMinimized = false;
+function vcUpdate() {
+  const land = VC_MQ.matches;
+  if (!land) vcMinimized = false;            // retour en portrait : la prochaine bascule réaffiche le plein écran
+  const on = land && !vcMinimized;
+  $('vcView').hidden = !on;
+  $('vcOpen').hidden = !(land && vcMinimized);
+  document.body.classList.toggle('vc-on', on);
+  vcRender();
+}
+function vcRender() {
+  if ($('vcView').hidden) return;
+  const live = isLive(), fresh = live && last && Date.now() - lastFrame <= MEAS_TIMEOUT_MS;
+  const alarm = !!(fresh && isAlarmFrame(last));
+  const c = $('vcConc');
+  c.textContent = last ? fmt(last.conc) : '—';
+  c.className = 'vc-conc ' + (!last ? '' : alarm ? 'alarm' : last.conc > 0 ? 'pos' : 'zero') + (fresh ? '' : ' idle');
+  $('vcView').classList.toggle('alarm', alarm);
+  const thr = alarmThreshold();
+  $('vcInfo').innerHTML = esc(t('measure')) + SEP + '<b>' + esc(live ? t(fresh ? 'measLive' : 'measWait') : t('state.' + bleState)) + '</b>' +
+    (thr !== null ? ' · ' + esc(t('thr', { v: fmt(thr) })) + (alarm ? SEP + '<b style="color:var(--bad)">' + esc(t('exceeded')) + '</b>' : '') : '');
+  const pb = $('vcPump');
+  pb.textContent = `${t('pump')}${SEP}${insp.pump ? t('pump.' + insp.pump) : '—'} ⟳`;
+  pb.disabled = !live;
+}
+$('vcUnit').textContent = UNIT;
+$('vcMin').onclick = () => { vcMinimized = true; vcUpdate(); };
+$('vcOpen').onclick = () => { vcMinimized = false; vcUpdate(); };
+// un seul petit bouton : chaque appui passe à l'allure suivante (Niv. 1 -> Niv. 2 -> Arrêt -> Niv. 1)
+$('vcPump').onclick = () => {
+  const next = { s1: '0101', s2: '0000', off: '0100', block: '0100' }[insp.pump] || '0100';
+  send('S1B' + next);
+  setTimeout(() => send('G1B'), 400);
+};
+VC_MQ.addEventListener ? VC_MQ.addEventListener('change', vcUpdate) : VC_MQ.addListener(vcUpdate);
+vcUpdate();
+/* ===== Visual_Concentration (fin) ===== */
 
 /* =====================================================================
    Boutons et démarrage
