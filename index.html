@@ -388,7 +388,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.6.0';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.6.1';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -1373,7 +1373,10 @@ async function connectKnown(entry) {
   if (!entry) return;
   if (navigator.bluetooth.getDevices) {
     try {
-      const d = (await navigator.bluetooth.getDevices()).find(x => x.id === entry.id);
+      // Reconnexion sans sélecteur : retrouver l'appareil déjà autorisé par id, sinon par nom
+      // (Chrome peut avoir réattribué un nouvel id au même appareil).
+      const devs = await navigator.bluetooth.getDevices();
+      const d = devs.find(x => x.id === entry.id) || (entry.name && devs.find(x => x.name === entry.name));
       if (d) { log(t('logKnown')); useDevice(d); return; }
     } catch {}
   }
