@@ -77,7 +77,7 @@
   .mhead b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rec{color:var(--bad);font-size:13px;white-space:nowrap}
   .rec::before{content:"● ";animation:blink 1.4s infinite}
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-bottom:10px}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;text-align:center;margin-bottom:10px}
   .stats div{background:var(--bg);border-radius:10px;padding:8px 2px}
   .stats b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
   .stats span{font-size:11px;color:var(--mute)}
@@ -119,6 +119,7 @@
   #map{height:320px;border-radius:12px;overflow:hidden;background:#cbd5e1;z-index:0}
   .mapoff{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#334155;font-size:14px}
   .leaflet-marker-icon.pin{background:#dc2626;border:2.5px solid #fff;border-radius:50%;color:#fff;font:700 13px/23px system-ui;text-align:center;box-sizing:border-box;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+  .leaflet-marker-icon.pin.annot{background:#2563eb;font-size:11px}
   .mapshown[hidden]{display:none}
   .mapshown{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mute);margin:-4px 0 8px}
   .mapshown b{color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -176,8 +177,10 @@
         <div><b id="sDist">0 m</b><span data-i18n="distance"></span></div>
         <div><b id="sAlarms">0</b><span data-i18n="alarms"></span></div>
         <div><b id="sIndices">0</b><span data-i18n="indices"></span></div>
+        <div><b id="sAnnots">0</b><span data-i18n="annotShort"></span></div>
       </div>
       <button id="btnIndice" class="danger full" disabled></button>
+      <button id="btnAnnot" class="sec full" style="margin-top:8px" data-i18n="annotation"></button>
       <p class="hint" id="gpsHint" data-i18n="gpsWaiting"></p>
       <div class="btns" style="margin-bottom:0"><button id="btnStop" class="sec" data-i18n="stop"></button></div>
     </div>
@@ -306,6 +309,24 @@
   </div>
 </div>
 
+<!-- Annotation (point à la demande, différent d'un indice) -->
+<div class="modal" id="dlgAnnot" hidden>
+  <div class="sheet">
+    <h3 id="aTitle"></h3>
+    <div class="kv">
+      <span data-i18n="time"></span><b id="aTime"></b>
+      <span data-i18n="position"></span><b id="aPos"></b>
+    </div>
+    <div class="btns"><button class="sec small" id="btnAPosNow" data-i18n="useMyPos"></button></div>
+    <label for="aNote" data-i18n="note"></label>
+    <textarea id="aNote" data-i18n-ph="notePh"></textarea>
+    <label data-i18n="photos"></label>
+    <label class="file"><span data-i18n="addPhoto"></span><input id="aPhoto" type="file" accept="image/*" capture="environment"></label>
+    <div class="thumbs" id="aThumbs"></div>
+    <div class="btns"><button class="sec" data-close data-i18n="cancel"></button><button id="btnAnnotOk" data-i18n="saveAnnotation"></button></div>
+  </div>
+</div>
+
 <!-- Rapport -->
 <div class="modal" id="dlgReport" hidden>
   <div class="sheet">
@@ -328,7 +349,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.2.0';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.3.0';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -338,6 +359,8 @@ const STATUS_MS = 10000;           // batterie + pompe relues toutes les 10 s
 const ALARM_GAP_MS = 3000;         // au-delà, un nouveau dépassement compte comme une nouvelle alarme
 const REARM_MS = 5000;             // après un indice, une alarme toujours active redevient disponible après 5 s
 const BAT_MAX = 5;                 // nombre de barres de batterie (niveau G73 supposé 0..5)
+const RSSI_TX = -59;               // puissance Bluetooth mesurée à 1 m (dBm) — estimation de distance
+const RSSI_N = 2.5;                // facteur d'atténuation (2 = champ libre, 3+ = intérieur encombré)
 
 /* =====================================================================
    Outils
@@ -409,6 +432,11 @@ const db = (() => {
    ===================================================================== */
 const I18N = {
  "fr": {
+  "annotation": "📝 Annotation", "annotShort": "Annot.", "annotN": "Annotation n°{n}",
+  "saveAnnotation": "Enregistrer l’annotation", "logAnnot": "Annotation n°{n} enregistrée.",
+  "annotationsTitle": "Annotations ({n})", "noAnnotations": "Aucune annotation enregistrée.",
+  "legAnnot": "Annotation", "countsAnnot": " · {n} annotation(s)",
+  "dev.DistanceEst": "Distance (est.)", "distEst": "~{d} m", "distFar": "> {d} m", "distClose": "< 1 m",
   "state.idle": "Déconnecté", "state.searching": "Recherche…", "state.connecting": "Connexion…",
   "state.connected": "Connecté", "state.reconnecting": "Reconnexion…", "state.failed": "Échec", "state.demo": "Démo",
   "docTitle": "Inspectra v{v} – Surveillance",
@@ -553,6 +581,11 @@ const I18N = {
   "vc.minimize": "⤡ Réduire", "vc.open": "⛶ Concentration"
  },
  "en": {
+  "annotation": "📝 Annotation", "annotShort": "Notes", "annotN": "Annotation #{n}",
+  "saveAnnotation": "Save annotation", "logAnnot": "Annotation #{n} saved.",
+  "annotationsTitle": "Annotations ({n})", "noAnnotations": "No annotation recorded.",
+  "legAnnot": "Annotation", "countsAnnot": " · {n} annotation(s)",
+  "dev.DistanceEst": "Distance (est.)", "distEst": "~{d} m", "distFar": "> {d} m", "distClose": "< 1 m",
   "state.idle": "Disconnected", "state.searching": "Searching…", "state.connecting": "Connecting…",
   "state.connected": "Connected", "state.reconnecting": "Reconnecting…", "state.failed": "Failed", "state.demo": "Demo",
   "docTitle": "Inspectra v{v} – Monitoring",
@@ -697,6 +730,11 @@ const I18N = {
   "vc.minimize": "⤡ Minimise", "vc.open": "⛶ Concentration"
  },
  "de": {
+  "annotation": "📝 Anmerkung", "annotShort": "Notizen", "annotN": "Anmerkung Nr. {n}",
+  "saveAnnotation": "Anmerkung speichern", "logAnnot": "Anmerkung Nr. {n} gespeichert.",
+  "annotationsTitle": "Anmerkungen ({n})", "noAnnotations": "Keine Anmerkung gespeichert.",
+  "legAnnot": "Anmerkung", "countsAnnot": " · {n} Anmerkung(en)",
+  "dev.DistanceEst": "Entfernung (ca.)", "distEst": "~{d} m", "distFar": "> {d} m", "distClose": "< 1 m",
   "state.idle": "Getrennt", "state.searching": "Suche…", "state.connecting": "Verbinden…",
   "state.connected": "Verbunden", "state.reconnecting": "Neu verbinden…", "state.failed": "Fehler", "state.demo": "Demo",
   "docTitle": "Inspectra v{v} – Überwachung",
@@ -833,6 +871,11 @@ const I18N = {
   "vc.minimize": "⤡ Verkleinern", "vc.open": "⛶ Konzentration"
  },
  "es": {
+  "annotation": "📝 Anotación", "annotShort": "Notas", "annotN": "Anotación n.º {n}",
+  "saveAnnotation": "Guardar anotación", "logAnnot": "Anotación n.º {n} guardada.",
+  "annotationsTitle": "Anotaciones ({n})", "noAnnotations": "Ninguna anotación registrada.",
+  "legAnnot": "Anotación", "countsAnnot": " · {n} anotación(es)",
+  "dev.DistanceEst": "Distancia (est.)", "distEst": "~{d} m", "distFar": "> {d} m", "distClose": "< 1 m",
   "state.idle": "Desconectado", "state.searching": "Buscando…", "state.connecting": "Conectando…",
   "state.connected": "Conectado", "state.reconnecting": "Reconectando…", "state.failed": "Error", "state.demo": "Demo",
   "docTitle": "Inspectra v{v} – Vigilancia",
@@ -969,6 +1012,11 @@ const I18N = {
   "vc.minimize": "⤡ Reducir", "vc.open": "⛶ Concentración"
  },
  "it": {
+  "annotation": "📝 Annotazione", "annotShort": "Note", "annotN": "Annotazione n. {n}",
+  "saveAnnotation": "Salva annotazione", "logAnnot": "Annotazione n. {n} salvata.",
+  "annotationsTitle": "Annotazioni ({n})", "noAnnotations": "Nessuna annotazione registrata.",
+  "legAnnot": "Annotazione", "countsAnnot": " · {n} annotazione/i",
+  "dev.DistanceEst": "Distanza (stim.)", "distEst": "~{d} m", "distFar": "> {d} m", "distClose": "< 1 m",
   "state.idle": "Disconnesso", "state.searching": "Ricerca…", "state.connecting": "Connessione…",
   "state.connected": "Connesso", "state.reconnecting": "Riconnessione…", "state.failed": "Errore", "state.demo": "Demo",
   "docTitle": "Inspectra v{v} – Sorveglianza",
@@ -1147,7 +1195,8 @@ let rxBuffer = '', flushTimer = null, lastRawLog = 0;
 let lastFrame = 0, last = null, sessionMax = 0;
 let demoTimer = null, wakeLock = null, bleState = 'idle';
 let pollTimer = null, statusTimer = null, pollLogged = false;
-const insp = { serial: '', battery: null, pump: null };   // pump : 'off' | 'block' | 's1' | 's2'
+const insp = { serial: '', battery: null, pump: null, dist: null };   // pump : 'off'|'block'|'s1'|'s2' ; dist : distance estimée (m)
+let advAbort = null, rssiEwma = null;
 
 $('unit').textContent = UNIT;
 $('appVersion').textContent = 'v' + APP_VERSION;
@@ -1291,6 +1340,7 @@ async function connect() {
     keepAwake();
     showInfo();
     readDeviceInfo(server);
+    startRssi();
     onLinkReady();
   } catch (e) {
     log(t('logFail', { e: e.message }));
@@ -1304,6 +1354,7 @@ async function connect() {
 function onDisconnected() {
   log(t('logLost'));
   stopTimers();
+  stopRssi();
   if (userDisconnect) { setState('idle'); return; }
   scheduleReconnect();
 }
@@ -1318,6 +1369,7 @@ async function disconnect() {
   userDisconnect = true;
   clearTimeout(reconnectTimer);
   stopTimers();
+  stopRssi();
   if (demoTimer) return stopDemo();
   try { if (notifyChar) await notifyChar.stopNotifications(); } catch {}
   try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {}
@@ -1345,8 +1397,44 @@ function showInfo() {
   if (insp.serial) info['Série'] = insp.serial;
   Object.assign(info, bleExtra);
   devInfo = info;
-  $('devinfo').innerHTML = Object.entries(info).filter(([, v]) => v).map(([k, v]) => `${esc(t('dev.' + k))}${SEP}<b>${esc(v)}</b>`).join('<br>');
-  if (mission && isLive()) { mission.device = { ...info }; scheduleSave(); }
+  renderDevInfo();
+  if (mission && isLive()) { mission.device = { ...info }; scheduleSave(); }   // la distance estimée n'est pas stockée (elle varie en continu)
+}
+// Distance estimée téléphone <-> appareil, ajoutée en dernière ligne (mise à jour sans resauvegarder la mission)
+function fmtDistEst(d) {
+  if (d == null) return '';
+  if (d < 1) return t('distClose');
+  if (d > 50) return t('distFar', { d: 50 });
+  return t('distEst', { d: d < 10 ? d.toFixed(1).replace('.', LANG === 'en' ? '.' : ',') : Math.round(d) });
+}
+function renderDevInfo() {
+  const info = devInfo || {};
+  let html = Object.entries(info).filter(([, v]) => v).map(([k, v]) => `${esc(t('dev.' + k))}${SEP}<b>${esc(v)}</b>`).join('<br>');
+  if (insp.dist != null) html += (html ? '<br>' : '') + `${esc(t('dev.DistanceEst'))}${SEP}<b>${esc(fmtDistEst(insp.dist))}</b>`;
+  $('devinfo').innerHTML = html || t('noDevice');
+}
+// RSSI via publicités Bluetooth -> distance (log-distance path loss). Beaucoup d'appareils
+// cessent d'émettre des publicités une fois connectés : dans ce cas la distance reste vide.
+async function startRssi() {
+  stopRssi();
+  if (!device || !device.watchAdvertisements) return;
+  try {
+    advAbort = new AbortController();
+    device.addEventListener('advertisementreceived', onAdv);
+    await device.watchAdvertisements({ signal: advAbort.signal });
+  } catch { stopRssi(); }
+}
+function stopRssi() {
+  try { device && device.removeEventListener('advertisementreceived', onAdv); } catch {}
+  try { advAbort && advAbort.abort(); } catch {}
+  advAbort = null; rssiEwma = null; insp.dist = null;
+}
+function onAdv(e) {
+  if (typeof e.rssi !== 'number') return;
+  rssiEwma = rssiEwma == null ? e.rssi : rssiEwma * 0.7 + e.rssi * 0.3;   // lissage
+  const tx = (typeof e.txPower === 'number') ? e.txPower : RSSI_TX;
+  insp.dist = Math.pow(10, (tx - rssiEwma) / (10 * RSSI_N));
+  renderDevInfo();
 }
 
 /* =====================================================================
@@ -1769,7 +1857,7 @@ $('btnStartOk').onclick = () => {
 function startMission(name, operator, threshold) {
   mission = { id: 'M' + Date.now(), name, operator, threshold, unit: UNIT,
     start: Date.now(), end: null, device: isLive() ? { ...devInfo } : null,
-    track: [], alarms: [], indices: [], maxConc: 0, samples: [] };
+    track: [], alarms: [], indices: [], annotations: [], maxConc: 0, samples: [] };
   store.set('insp_active', mission.id);
   shownMission = null;
   follow = true;
@@ -1809,7 +1897,7 @@ function gpsHint(s, bad) {
 /* =====================================================================
    Carte OpenStreetMap (Leaflet)
    ===================================================================== */
-let map = null, meMarker = null, meAcc = null, trackLine = null, layerAlarms = null, layerIndices = null;
+let map = null, meMarker = null, meAcc = null, trackLine = null, layerAlarms = null, layerIndices = null, layerAnnots = null;
 let follow = true, shownMission = null, mapKey = '', cursorMarker = null;
 
 function initMap() {
@@ -1841,6 +1929,7 @@ function initMap() {
   });
   layerAlarms = L.layerGroup().addTo(map);
   layerIndices = L.layerGroup().addTo(map);
+  layerAnnots = L.layerGroup().addTo(map);
   map.on('dragstart', () => { follow = false; renderMapButtons(); });
   renderMapButtons();
 }
@@ -1862,12 +1951,13 @@ function mapUpdateMe() {
 function mapRenderMission(force) {
   if (!map) return;
   const m = shownMission || mission;
-  const key = m ? `${m.id}-${m.track.length}-${m.alarms.length}-${m.indices.length}-${m.alarms.map(a => a.indice ? 1 : 0).join('')}` : '';
+  const key = m ? `${m.id}-${m.track.length}-${m.alarms.length}-${m.indices.length}-${(m.annotations||[]).length}-${m.alarms.map(a => a.indice ? 1 : 0).join('')}` : '';
   if (!force && key === mapKey) return;
   mapKey = key;
   trackLine.setLatLngs(m ? m.track.map(p => [p.lat, p.lon]) : []);
   layerAlarms.clearLayers();
   layerIndices.clearLayers();
+  layerAnnots.clearLayers();
   if (!m) return;
   const u = UNIT;   // l'Inspectra mesure en ppm (les missions v1.0/1.1 avaient « ppm·m » par erreur)
   m.alarms.filter(a => a.pos && !a.indice).forEach(a =>
@@ -1881,6 +1971,13 @@ function mapRenderMission(force) {
         (i.photos.length ? `<br><img src="${i.photos[0].data}" style="width:170px;border-radius:6px;margin-top:6px">` : ''),
         { maxWidth: 200 })
       .addTo(layerIndices));
+  (m.annotations || []).filter(an => an.pos).forEach(an =>   // annotations : repère bleu « A », distinct des indices (rouges)
+    L.marker([an.pos.lat, an.pos.lon], { icon: L.divIcon({ className: 'pin annot', html: 'A' + an.n, iconSize: [28, 28], iconAnchor: [14, 14] }) })
+      .bindPopup(`<b>${t('annotN', { n: an.n })}</b> · ${fmtTime(an.t)}` +
+        (an.note ? `<br>${esc(an.note)}` : '') +
+        (an.photos.length ? `<br><img src="${an.photos[0].data}" style="width:170px;border-radius:6px;margin-top:6px">` : ''),
+        { maxWidth: 200 })
+      .addTo(layerAnnots));
 }
 
 function mapShowCursor(smp, center) {
@@ -1902,7 +1999,7 @@ function mapShowCursor(smp, center) {
 function mapClearCursor() { if (cursorMarker) { cursorMarker.remove(); cursorMarker = null; } }
 
 function fitMission(m) {
-  const pts = [...m.track, ...m.alarms.filter(a => a.pos).map(a => a.pos), ...m.indices.filter(i => i.pos).map(i => i.pos)];
+  const pts = [...m.track, ...m.alarms.filter(a => a.pos).map(a => a.pos), ...m.indices.filter(i => i.pos).map(i => i.pos), ...(m.annotations || []).filter(a => a.pos).map(a => a.pos)];
   if (pts.length) map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lon])).pad(0.15), { maxZoom: 18 });
 }
 
@@ -1983,6 +2080,7 @@ function renderMission() {
   $('sDist').textContent = fmtDist(trackDist(mission.track));
   $('sAlarms').textContent = mission.alarms.length;
   $('sIndices').textContent = mission.indices.length;
+  $('sAnnots').textContent = (mission.annotations || []).length;
   const a = pendingAlarm(), b = $('btnIndice');
   b.disabled = !a;
   b.classList.toggle('pulse', !!a);
@@ -2077,6 +2175,51 @@ $('btnIndiceOk').onclick = () => {
 };
 
 /* =====================================================================
+   Annotation : point créé à la demande (commentaire + photo), distinct d'un indice
+   ===================================================================== */
+let annotDraft = null;
+$('btnAnnot').onclick = () => {
+  if (!mission) return;
+  annotDraft = { pos: lastPos ? { ...lastPos } : null, photos: [] };
+  $('aTitle').textContent = t('annotN', { n: (mission.annotations || []).length + 1 });
+  $('aTime').textContent = fmtTime(Date.now());
+  $('aNote').value = '';
+  renderAnnotDraft();
+  openModal('dlgAnnot');
+};
+$('btnAPosNow').onclick = () => {
+  if (!lastPos) { alert(t('noPosYet')); return; }
+  annotDraft.pos = { ...lastPos };
+  renderAnnotDraft();
+};
+function renderAnnotDraft() {
+  const p = annotDraft.pos;
+  $('aPos').innerHTML = p ? `${fmtPos(p)}<br><span style="color:var(--mute);font-weight:400">\u00b1 ${p.acc} m</span>` : t('unavailable');
+  $('aThumbs').innerHTML = annotDraft.photos.map((ph, i) =>
+    `<div><img src="${ph.data}" alt=""><button data-rm="${i}">\u00d7</button></div>`).join('');
+  $('aThumbs').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { annotDraft.photos.splice(+b.dataset.rm, 1); renderAnnotDraft(); });
+}
+$('aPhoto').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try { annotDraft.photos.push(await fileToJpeg(file)); renderAnnotDraft(); }
+  catch (err) { alert(t('badPhoto', { e: err.message })); }
+};
+$('btnAnnotOk').onclick = () => {
+  if (!mission.annotations) mission.annotations = [];
+  const an = { n: mission.annotations.length + 1, t: Date.now(), pos: annotDraft.pos,
+    note: $('aNote').value.trim(), photos: annotDraft.photos };
+  mission.annotations.push(an);
+  annotDraft = null;
+  closeModal('dlgAnnot');
+  log(t('logAnnot', { n: an.n }));
+  renderMission();
+  mapRenderMission(true);
+  scheduleSave(true);
+};
+
+/* =====================================================================
    Liste des missions
    ===================================================================== */
 async function renderMissions() {
@@ -2088,7 +2231,8 @@ async function renderMissions() {
     <div class="item">
       <div class="grow">
         <div class="t">${esc(m.name)}</div>
-        <div class="s">${fmtDate(m.start)} · ${fmtDur(m.end - m.start)} · ${t('counts', { a: m.alarms.length, i: m.indices.length })}${m.sentAt ? ` · <span style="color:var(--ok)">${t('sentShort')}</span>` : ''}</div>
+        <div class="s">${fmtDate(m.start)} · ${fmtDur(m.end - m.start)} · ${t('counts', { a: m.alarms.length, i: m.indices.length })}${m.annotations && m.annotations.length ? t('countsAnnot', { n: m.annotations.length }) : ''}${m.sentAt ? ` · <span style="color:var(--ok)">${t('sentShort')}</span>` : ''}</div>
+        <div class="s">${t('distance')}${SEP}${fmtDist(trackDist(m.track))}${m.device && m.device['Série'] ? ` · ${t('dev.Série')} ${esc(m.device['Série'])}` : ''}</div>
       </div>
       <button class="small sec" data-map="${m.id}">${t('map')}</button>
       <button class="small" data-pdf="${m.id}">PDF</button>
@@ -2309,7 +2453,7 @@ async function renderBasemap(cx, cy, Sn, wPt, hPt) {
 async function buildReport(m, opts = {}) {
   const d = PDF.create(), M = 40, PW = d.W - 2 * M;
   const C = { ink: [15, 23, 42], mute: [100, 116, 139], line: [203, 213, 225], soft: [241, 245, 249],
-    navy: [15, 23, 42], blue: [2, 132, 199], red: [220, 38, 38], orange: [234, 88, 12], green: [22, 163, 74], white: [255, 255, 255] };
+    navy: [15, 23, 42], blue: [2, 132, 199], red: [220, 38, 38], orange: [234, 88, 12], green: [22, 163, 74], indigo: [37, 99, 235], white: [255, 255, 255] };
   const unit = UNIT;   // ppm pour toutes les missions, y compris les anciennes
   let y = 0;
 
@@ -2398,7 +2542,7 @@ async function buildReport(m, opts = {}) {
 
   // ---- Plan du parcours ----
   heading(t('plan'));
-  const pts = [...track, ...m.alarms.filter(a => a.pos).map(a => a.pos), ...m.indices.filter(i => i.pos).map(i => i.pos)];
+  const pts = [...track, ...m.alarms.filter(a => a.pos).map(a => a.pos), ...m.indices.filter(i => i.pos).map(i => i.pos), ...(m.annotations || []).filter(a => a.pos).map(a => a.pos)];
   if (!pts.length) {
     para(t('noGps'), { color: C.mute });
   } else {
@@ -2443,6 +2587,11 @@ async function buildReport(m, opts = {}) {
       d.circle(p[0], p[1], 8, { fill: C.red, stroke: C.white, lw: 1.5 });
       d.text(p[0] - w / 2, p[1] + 3, lbl, { size: 8, bold: true, color: C.white });
     });
+    (m.annotations || []).filter(a => a.pos).forEach(a => {   // annotations : repère bleu « A »
+      const p = toPage(a.pos), lbl = 'A' + a.n, w = d.width(lbl, 7, true);
+      d.circle(p[0], p[1], 8, { fill: C.indigo, stroke: C.white, lw: 1.5 });
+      d.text(p[0] - w / 2, p[1] + 2.6, lbl, { size: 7, bold: true, color: C.white });
+    });
 
     const target = (bwid / 4) / S;
     const nice = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000, 10000, 20000, 50000].reduce((a, b) => b <= target ? b : a, 1);
@@ -2462,6 +2611,7 @@ async function buildReport(m, opts = {}) {
     leg((x, yy) => d.rect(x - 4, yy - 4, 8, 8, { fill: C.navy }), t('legEnd'));
     leg((x, yy) => d.circle(x, yy, 4, { fill: C.orange }), t('legAlarm'));
     leg((x, yy) => d.circle(x, yy, 5, { fill: C.red }), t('indice'));
+    leg((x, yy) => d.circle(x, yy, 5, { fill: C.indigo }), t('legAnnot'));
     y += 22;
   }
 
@@ -2540,6 +2690,52 @@ async function buildReport(m, opts = {}) {
     y += 16;
   });
 
+  // ---- Annotations ----
+  const annots = m.annotations || [];
+  heading(t('annotationsTitle', { n: annots.length }));
+  if (!annots.length) para(t('noAnnotations'), { color: C.mute });
+  annots.forEach(an => {
+    ensure(90);
+    d.rect(M, y, PW, 26, { fill: [239, 246, 255] });
+    d.circle(M + 16, y + 13, 9, { fill: C.indigo });
+    const nb = 'A' + an.n;
+    d.text(M + 16 - d.width(nb, 8, true) / 2, y + 16.2, nb, { size: 8, bold: true, color: C.white });
+    d.text(M + 32, y + 17, t('annotN', { n: an.n }), { size: 11.5, bold: true });
+    y += 34;
+    const kv = (k, v, link) => {
+      const lines = wrap(v, PW - 100, 10, false);
+      ensure(lines.length * 14 + 4);
+      d.text(M + 8, y + 10, k, { size: 9, color: C.mute });
+      lines.forEach((l, j) => {
+        d.text(M + 100, y + 10 + j * 14, l, { size: 10, color: link ? C.blue : C.ink });
+        if (link) d.link(M + 100, y + j * 14, d.width(l, 10), 13, link);
+      });
+      y += lines.length * 14 + 4;
+    };
+    kv(t('dateTime'), t('at', { d: new Date(an.t).toLocaleDateString(LOCALE), t: fmtTime(an.t) }));
+    if (an.pos) kv(t('position'), t('openMap', { p: fmtPos(an.pos), a: an.pos.acc }), mapUrl(an.pos));
+    else kv(t('position'), t('unavailable'));
+    kv(t('note'), an.note || '\u2014');
+    const pw = (PW - 12) / 2;
+    for (let i = 0; i < an.photos.length; i += 2) {
+      const row = an.photos.slice(i, i + 2).map(ph => {
+        let w = pw, h = pw * ph.h / ph.w;
+        if (h > 230) { h = 230; w = h * ph.w / ph.h; }
+        return { ph, w, h };
+      });
+      const rh = Math.max(...row.map(r => r.h));
+      y += 6;
+      ensure(rh + 8);
+      row.forEach((r, j) => {
+        const x = M + j * (pw + 12) + (pw - r.w) / 2;
+        d.image(d.jpeg(r.ph.data, r.ph.w, r.ph.h), x, y, r.w, r.h);
+        d.rect(x, y, r.w, r.h, { stroke: C.line, lw: 0.5 });
+      });
+      y += rh + 4;
+    }
+    y += 16;
+  });
+
   // ---- Pieds de page ----
   const gen = t('generated', { d: fmtDate(Date.now()), v: APP_VERSION });
   d.pages.forEach((p, i) => {
@@ -2579,6 +2775,8 @@ function startDemo() {
     const k = ++demo.tick;
     const pumping = demo.pump[0] === 1;
     demo.conc = !pumping ? 0 : Math.max(0, k % 80 > 25 && k % 80 < 45 ? 400 + 300 * Math.sin(k / 3) + Math.random() * 80 : Math.random() * 8);
+    insp.dist = Math.min(15, Math.max(0.7, (insp.dist || 3) + (Math.random() - 0.5) * 1.1));
+    renderDevInfo();   // distance estimée simulée
     if (demo.auto) {
       const f = 'M10' + hex(demo.conc * 10, 8) + '\r';
       if (k % 7 === 0) demoEmit(f + 'M10' + hex(demo.conc * 10, 8) + '\r');   // deux trames collées
@@ -2588,7 +2786,7 @@ function startDemo() {
   showInfo();
   onLinkReady();
 }
-function stopDemo() { clearInterval(demoTimer); demoTimer = null; stopTimers(); uartName = ''; setState('idle'); }
+function stopDemo() { clearInterval(demoTimer); demoTimer = null; stopTimers(); uartName = ''; insp.dist = null; renderDevInfo(); setState('idle'); }
 
 /* =====================================================================
    Visual_Concentration : téléphone en paysage -> plein écran concentration
