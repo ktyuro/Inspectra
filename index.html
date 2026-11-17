@@ -133,13 +133,35 @@
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);border:5px solid transparent;transition:background .2s,border-color .2s}
   #vcView[hidden]{display:none}
   #vcView.alarm{border-color:var(--bad);background:#2a0f14}
+  /* mode chiffre */
+  #vcBig{display:flex;flex-direction:column;align-items:center;justify-content:center}
   .vc-conc{font-size:min(44vh,21vw);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;transition:color .2s,opacity .2s}
   .vc-conc.zero{color:var(--ok)} .vc-conc.pos{color:var(--warn)} .vc-conc.alarm{color:var(--bad)} .vc-conc.idle{opacity:.35}
   .vc-unit{font-size:6vh;color:var(--mute);margin-top:1vh}
   .vc-info{font-size:4.6vh;color:var(--mute);margin-top:3vh;text-align:center}
   .vc-info b{color:var(--txt)}
-  #vcMin{position:absolute;top:14px;right:14px}
-  #vcPump{position:absolute;bottom:14px;right:14px}
+  /* mode carte : la carte de la page est déplacée ici en plein écran */
+  #vcMapHolder{display:none}
+  #vcView.vc-map #vcBig{display:none}
+  #vcView.vc-map #vcMapHolder{display:block;position:absolute;inset:0;z-index:0}
+  #vcView.vc-map #vcMapHolder #map{width:100%;height:100%;border-radius:0}
+  #vcView.vc-map .leaflet-top.leaflet-left{top:60px}   /* décale le zoom pour ne pas être caché par le bouton */
+  /* panneau concentration en transparence par-dessus la carte */
+  #vcPanel{display:none}
+  #vcView.vc-map #vcPanel{display:block;position:absolute;left:14px;bottom:14px;z-index:5;pointer-events:none;
+    background:rgba(15,23,42,.62);border:1px solid var(--line);border-radius:14px;padding:10px 16px 12px}
+  #vcView.vc-map.alarm #vcPanel{background:rgba(153,27,27,.72)}
+  .vcp-conc{font-size:min(24vh,15vw);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 8px rgba(0,0,0,.6);transition:color .2s,opacity .2s}
+  .vcp-conc.zero{color:#86efac} .vcp-conc.pos{color:#fcd34d} .vcp-conc.alarm{color:#fecaca} .vcp-conc.idle{opacity:.45}
+  .vcp-unit{font-size:3vh;color:#cbd5e1;margin-top:2px}
+  .vcp-info{font-size:2.6vh;color:#e2e8f0;margin-top:4px}
+  .vcp-info b{color:#fff}
+  /* boutons du plein écran */
+  #vcMin{position:absolute;top:14px;right:14px;z-index:6}
+  #vcMap{position:absolute;top:14px;left:14px;z-index:6}
+  #vcPump{position:absolute;top:56px;right:14px;z-index:6}
+  #vcLocate{position:absolute;right:14px;bottom:16px;z-index:6}
+  #vcLocate[hidden]{display:none}
   #vcOpen{position:fixed;right:14px;bottom:14px;z-index:5;box-shadow:0 2px 12px rgba(0,0,0,.5)}
   #vcOpen[hidden]{display:none}
   /* ===== Visual_Concentration (fin) ===== */
@@ -273,10 +295,20 @@
 
 <!-- ===== Visual_Concentration : affichage paysage (début) ===== -->
 <div id="vcView" hidden>
+  <div id="vcMapHolder"></div>
+  <div id="vcBig">
+    <div id="vcConc" class="vc-conc">—</div>
+    <div class="vc-unit" id="vcUnit"></div>
+    <div class="vc-info" id="vcInfo"></div>
+  </div>
+  <div id="vcPanel">
+    <div id="vcpConc" class="vcp-conc">—</div>
+    <div class="vcp-unit" id="vcpUnit"></div>
+    <div class="vcp-info" id="vcpInfo"></div>
+  </div>
   <button id="vcMin" class="sec small" data-i18n="vc.minimize"></button>
-  <div id="vcConc" class="vc-conc">—</div>
-  <div class="vc-unit" id="vcUnit"></div>
-  <div class="vc-info" id="vcInfo"></div>
+  <button id="vcMap" class="sec small"></button>
+  <button id="vcLocate" class="sec small" hidden></button>
   <button id="vcPump" class="sec small"></button>
 </div>
 <button id="vcOpen" class="small" hidden data-i18n="vc.open"></button>
@@ -356,7 +388,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.5.0';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.6.0';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -439,6 +471,7 @@ const db = (() => {
    ===================================================================== */
 const I18N = {
  "fr": {
+  "vc.map": "🗺 Carte", "vc.conc": "⛶ Concentration",
   "shutdown": "Éteindre", "confirmShutdown": "Éteindre l’Inspectra ? Il va se couper et se déconnecter.", "logShutdown": "Extinction de l’Inspectra (SFD).",
   "resume": "Reprendre", "resumeBusy": "Termine d’abord la mission en cours.", "logResumedMission": "Mission reprise : {n}", "itemsTitle": "Indices et annotations",
   "annotation": "📝 Annotation", "annotShort": "Annot.", "annotN": "Annotation n°{n}",
@@ -590,6 +623,7 @@ const I18N = {
   "vc.minimize": "⤡ Réduire", "vc.open": "⛶ Concentration"
  },
  "en": {
+  "vc.map": "🗺 Map", "vc.conc": "⛶ Concentration",
   "shutdown": "Shut down", "confirmShutdown": "Turn off the Inspectra? It will power off and disconnect.", "logShutdown": "Shutdown command sent (SFD).",
   "resume": "Resume", "resumeBusy": "Finish the current mission first.", "logResumedMission": "Mission resumed: {n}", "itemsTitle": "Leaks and annotations",
   "annotation": "📝 Annotation", "annotShort": "Notes", "annotN": "Annotation #{n}",
@@ -741,6 +775,7 @@ const I18N = {
   "vc.minimize": "⤡ Minimise", "vc.open": "⛶ Concentration"
  },
  "de": {
+  "vc.map": "🗺 Karte", "vc.conc": "⛶ Konzentration",
   "shutdown": "Ausschalten", "confirmShutdown": "Inspectra ausschalten? Es schaltet sich aus und trennt die Verbindung.", "logShutdown": "Ausschaltbefehl gesendet (SFD).",
   "resume": "Fortsetzen", "resumeBusy": "Beende zuerst den laufenden Einsatz.", "logResumedMission": "Einsatz fortgesetzt: {n}", "itemsTitle": "Hinweise und Anmerkungen",
   "annotation": "📝 Anmerkung", "annotShort": "Notizen", "annotN": "Anmerkung Nr. {n}",
@@ -884,6 +919,7 @@ const I18N = {
   "vc.minimize": "⤡ Verkleinern", "vc.open": "⛶ Konzentration"
  },
  "es": {
+  "vc.map": "🗺 Mapa", "vc.conc": "⛶ Concentración",
   "shutdown": "Apagar", "confirmShutdown": "¿Apagar el Inspectra? Se apagará y se desconectará.", "logShutdown": "Comando de apagado enviado (SFD).",
   "resume": "Reanudar", "resumeBusy": "Finaliza primero la misión en curso.", "logResumedMission": "Misión reanudada: {n}", "itemsTitle": "Indicios y anotaciones",
   "annotation": "📝 Anotación", "annotShort": "Notas", "annotN": "Anotación n.º {n}",
@@ -1027,6 +1063,7 @@ const I18N = {
   "vc.minimize": "⤡ Reducir", "vc.open": "⛶ Concentración"
  },
  "it": {
+  "vc.map": "🗺 Mappa", "vc.conc": "⛶ Concentrazione",
   "shutdown": "Spegni", "confirmShutdown": "Spegnere l’Inspectra? Si spegnerà e si disconnetterà.", "logShutdown": "Comando di spegnimento inviato (SFD).",
   "resume": "Riprendi", "resumeBusy": "Termina prima la missione in corso.", "logResumedMission": "Missione ripresa: {n}", "itemsTitle": "Indizi e annotazioni",
   "annotation": "📝 Annotazione", "annotShort": "Note", "annotN": "Annotazione n. {n}",
@@ -1249,19 +1286,54 @@ function setState(s) {
 /* =====================================================================
    Historique des appareils connectés
    ===================================================================== */
+// Fusionne deux entrées du même appareil (b dans a) : garder le plus récent,
+// additionner les connexions, conserver n° de série et firmware.
+function mergeDev(a, b) {
+  a.count = (a.count || 0) + (b.count || 0);
+  a.serial = a.serial || b.serial;
+  a.fw = a.fw || b.fw;
+  if ((b.last || 0) > (a.last || 0)) { a.last = b.last; a.name = b.name || a.name; a.id = b.id; }
+  else { a.name = a.name || b.name; }
+  return a;
+}
+// Regroupe les doublons déjà enregistrés : même n° de série, sinon même nom Bluetooth.
+function dedupDevices(list) {
+  const seen = {};
+  for (const d of Object.values(list)) {
+    const k = d.serial ? 's:' + d.serial : (d.name ? 'n:' + d.name : 'id:' + d.id);
+    if (!seen[k]) seen[k] = { ...d };
+    else mergeDev(seen[k], d);
+  }
+  const out = {};
+  for (const k in seen) out[seen[k].id] = seen[k];
+  return out;
+}
 function rememberDevice(extra) {
   if (!device) return;
   const list = store.get('insp_devices', {});
-  const e = list[device.id] || { id: device.id, count: 0 };
+  const serial = insp.serial || (extra && extra.serial) || '';
+  let e = list[device.id];
+  if (!e) {
+    // Chrome peut donner un NOUVEL identifiant au même appareil : retrouver l'entrée
+    // existante (par n° de série en priorité, sinon par nom) et la reprendre sous le nouvel id.
+    const name = device.name || '';
+    const prev = Object.keys(list).find(k => k !== device.id &&
+      (serial ? list[k].serial === serial : (name && list[k].name === name)));
+    if (prev) { e = list[prev]; delete list[prev]; } else e = { count: 0 };
+    e.id = device.id;
+  }
   e.name = device.name || e.name || t('unnamed');
   if (extra) Object.assign(e, extra);
   else { e.last = Date.now(); e.count = (e.count || 0) + 1; }
   list[device.id] = e;
-  store.set('insp_devices', list);
+  store.set('insp_devices', dedupDevices(list));
   renderDevices();
 }
 function renderDevices() {
-  const list = Object.values(store.get('insp_devices', {})).sort((a, b) => b.last - a.last);
+  let raw = store.get('insp_devices', {});
+  const deduped = dedupDevices(raw);
+  if (Object.keys(deduped).length !== Object.keys(raw).length) { store.set('insp_devices', deduped); }   // réenregistre si la liste a changé
+  const list = Object.values(deduped).sort((a, b) => (b.last || 0) - (a.last || 0));
   const el = $('devList');
   if (!list.length) { el.innerHTML = `<div class="empty">${t('noKnown')}</div>`; return; }
   el.innerHTML = list.map(d => `
@@ -1414,6 +1486,7 @@ async function readDeviceInfo(server) {
       try { extra[label] = new TextDecoder().decode(await (await s.getCharacteristic(uuid)).readValue()).replace(/\0/g, '').trim(); } catch {}
     }
     Object.assign(bleExtra, extra);
+    if (extra.Firmware) rememberDevice({ fw: extra.Firmware });
     showInfo();
   } catch {}
 }
@@ -2888,35 +2961,61 @@ function stopDemo() { clearInterval(demoTimer); demoTimer = null; stopTimers(); 
    « Visual_Concentration » dans le CSS, le HTML, ici et l'appel dans tick())
    ===================================================================== */
 const VC_MQ = matchMedia('(orientation: landscape) and (max-height: 600px)');   // paysage sur téléphone
-let vcMinimized = false;
+let vcMinimized = false, vcMode = 'conc';     // 'conc' = chiffre seul, 'map' = carte + concentration en transparence
+let mapHome = null;                            // emplacement d'origine de #map dans la page (pour le remettre)
+function vcMoveMapToFull() {
+  const m = $('map'); if (!m) return;
+  if (!mapHome) mapHome = { parent: m.parentNode, next: m.nextSibling };
+  if (m.parentNode !== $('vcMapHolder')) $('vcMapHolder').appendChild(m);
+  if (map) setTimeout(() => {
+    map.invalidateSize();
+    if (follow && !shownMission && lastPos) map.setView([lastPos.lat, lastPos.lon], Math.max(map.getZoom(), 17));
+  }, 60);
+}
+function vcRestoreMap() {
+  const m = $('map'); if (!m || !mapHome || m.parentNode !== $('vcMapHolder')) return;
+  mapHome.parent.insertBefore(m, mapHome.next);
+  if (map) setTimeout(() => map.invalidateSize(), 60);
+}
 function vcUpdate() {
   const land = VC_MQ.matches;
   if (!land) vcMinimized = false;            // retour en portrait : la prochaine bascule réaffiche le plein écran
   const on = land && !vcMinimized;
+  const mapOn = on && vcMode === 'map';
+  if (mapOn) vcMoveMapToFull(); else vcRestoreMap();   // la carte est en portrait OU dans le plein écran, jamais aux deux endroits
   $('vcView').hidden = !on;
+  $('vcView').classList.toggle('vc-map', mapOn);
   $('vcOpen').hidden = !(land && vcMinimized);
   document.body.classList.toggle('vc-on', on);
+  $('vcMap').textContent = t(mapOn ? 'vc.conc' : 'vc.map');
+  $('vcLocate').hidden = !mapOn;
   vcRender();
 }
 function vcRender() {
   if ($('vcView').hidden) return;
   const live = isLive(), fresh = live && last && Date.now() - lastFrame <= MEAS_TIMEOUT_MS;
   const alarm = !!(fresh && isAlarmFrame(last));
-  const c = $('vcConc');
-  c.textContent = last ? fmt(last.conc) : '—';
-  c.className = 'vc-conc ' + (!last ? '' : alarm ? 'alarm' : last.conc > 0 ? 'pos' : 'zero') + (fresh ? '' : ' idle');
+  const cTxt = last ? fmt(last.conc) : '—';
+  const cCls = (!last ? '' : alarm ? 'alarm' : last.conc > 0 ? 'pos' : 'zero') + (fresh ? '' : ' idle');
+  $('vcConc').textContent = cTxt; $('vcConc').className = 'vc-conc ' + cCls;
+  $('vcpConc').textContent = cTxt; $('vcpConc').className = 'vcp-conc ' + cCls;
   $('vcView').classList.toggle('alarm', alarm);
   const thr = alarmThreshold();
-  $('vcInfo').innerHTML = esc(t('measure')) + SEP + '<b>' + esc(live ? t(fresh ? 'measLive' : 'measWait') : t('state.' + bleState)) + '</b>' +
-    (thr !== null ? ' · ' + esc(t('thr', { v: fmt(thr) })) + (alarm ? SEP + '<b style="color:var(--bad)">' + esc(t('exceeded')) + '</b>' : '') : '');
+  const info = esc(t('measure')) + SEP + '<b>' + esc(live ? t(fresh ? 'measLive' : 'measWait') : t('state.' + bleState)) + '</b>' +
+    (thr !== null ? ' · ' + esc(t('thr', { v: fmt(thr) })) + (alarm ? SEP + '<b style="color:#fca5a5">' + esc(t('exceeded')) + '</b>' : '') : '');
+  $('vcInfo').innerHTML = info; $('vcpInfo').innerHTML = info;
   const pb = $('vcPump');
   pb.textContent = `${t('pump')}${SEP}${insp.pump ? t('pump.' + insp.pump) : '—'} ⟳`;
   pb.disabled = !live;
 }
 $('vcUnit').textContent = UNIT;
-$('vcMin').onclick = () => { vcMinimized = true; vcUpdate(); };
+$('vcpUnit').textContent = UNIT;
+$('vcLocate').textContent = '📍';
+$('vcMin').onclick = () => { vcMinimized = true; vcUpdate(); };     // Réduire (mode gardé)
 $('vcOpen').onclick = () => { vcMinimized = false; vcUpdate(); };
-// un seul petit bouton : chaque appui passe à l'allure suivante (Niv. 1 -> Niv. 2 -> Arrêt -> Niv. 1)
+$('vcMap').onclick = () => { vcMode = vcMode === 'map' ? 'conc' : 'map'; vcUpdate(); };
+$('vcLocate').onclick = () => { $('btnLocate').onclick(); vcMoveMapToFull(); };   // recentre et réactive le suivi
+// un seul petit bouton pompe : chaque appui passe à l'allure suivante (Niv. 1 -> Niv. 2 -> Arrêt -> Niv. 1)
 $('vcPump').onclick = () => {
   const next = { s1: '0101', s2: '0000', off: '0100', block: '0100' }[insp.pump] || '0100';
   send('S1B' + next);
