@@ -243,6 +243,7 @@
     <button id="btnConnect" data-i18n="connect"></button>
     <button id="btnDisconnect" class="sec" disabled data-i18n="disconnect"></button>
   </div>
+  <div class="btns" style="margin-bottom:4px"><button id="btnShutdown" class="danger" disabled data-i18n="shutdown"></button></div>
   <div style="text-align:center;margin-bottom:12px"><button id="btnConnectAll" class="link" data-i18n="connectAll"></button></div>
 
   <section class="card info" id="devinfo" data-i18n="noDevice"></section>
@@ -355,7 +356,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.4.0';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.5.0';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -438,6 +439,7 @@ const db = (() => {
    ===================================================================== */
 const I18N = {
  "fr": {
+  "shutdown": "Éteindre", "confirmShutdown": "Éteindre l’Inspectra ? Il va se couper et se déconnecter.", "logShutdown": "Extinction de l’Inspectra (SFD).",
   "resume": "Reprendre", "resumeBusy": "Termine d’abord la mission en cours.", "logResumedMission": "Mission reprise : {n}", "itemsTitle": "Indices et annotations",
   "annotation": "📝 Annotation", "annotShort": "Annot.", "annotN": "Annotation n°{n}",
   "saveAnnotation": "Enregistrer l’annotation", "logAnnot": "Annotation n°{n} enregistrée.",
@@ -588,6 +590,7 @@ const I18N = {
   "vc.minimize": "⤡ Réduire", "vc.open": "⛶ Concentration"
  },
  "en": {
+  "shutdown": "Shut down", "confirmShutdown": "Turn off the Inspectra? It will power off and disconnect.", "logShutdown": "Shutdown command sent (SFD).",
   "resume": "Resume", "resumeBusy": "Finish the current mission first.", "logResumedMission": "Mission resumed: {n}", "itemsTitle": "Leaks and annotations",
   "annotation": "📝 Annotation", "annotShort": "Notes", "annotN": "Annotation #{n}",
   "saveAnnotation": "Save annotation", "logAnnot": "Annotation #{n} saved.",
@@ -738,6 +741,7 @@ const I18N = {
   "vc.minimize": "⤡ Minimise", "vc.open": "⛶ Concentration"
  },
  "de": {
+  "shutdown": "Ausschalten", "confirmShutdown": "Inspectra ausschalten? Es schaltet sich aus und trennt die Verbindung.", "logShutdown": "Ausschaltbefehl gesendet (SFD).",
   "resume": "Fortsetzen", "resumeBusy": "Beende zuerst den laufenden Einsatz.", "logResumedMission": "Einsatz fortgesetzt: {n}", "itemsTitle": "Hinweise und Anmerkungen",
   "annotation": "📝 Anmerkung", "annotShort": "Notizen", "annotN": "Anmerkung Nr. {n}",
   "saveAnnotation": "Anmerkung speichern", "logAnnot": "Anmerkung Nr. {n} gespeichert.",
@@ -880,6 +884,7 @@ const I18N = {
   "vc.minimize": "⤡ Verkleinern", "vc.open": "⛶ Konzentration"
  },
  "es": {
+  "shutdown": "Apagar", "confirmShutdown": "¿Apagar el Inspectra? Se apagará y se desconectará.", "logShutdown": "Comando de apagado enviado (SFD).",
   "resume": "Reanudar", "resumeBusy": "Finaliza primero la misión en curso.", "logResumedMission": "Misión reanudada: {n}", "itemsTitle": "Indicios y anotaciones",
   "annotation": "📝 Anotación", "annotShort": "Notas", "annotN": "Anotación n.º {n}",
   "saveAnnotation": "Guardar anotación", "logAnnot": "Anotación n.º {n} guardada.",
@@ -1022,6 +1027,7 @@ const I18N = {
   "vc.minimize": "⤡ Reducir", "vc.open": "⛶ Concentración"
  },
  "it": {
+  "shutdown": "Spegni", "confirmShutdown": "Spegnere l’Inspectra? Si spegnerà e si disconnetterà.", "logShutdown": "Comando di spegnimento inviato (SFD).",
   "resume": "Riprendi", "resumeBusy": "Termina prima la missione in corso.", "logResumedMission": "Missione ripresa: {n}", "itemsTitle": "Indizi e annotazioni",
   "annotation": "📝 Annotazione", "annotShort": "Note", "annotN": "Annotazione n. {n}",
   "saveAnnotation": "Salva annotazione", "logAnnot": "Annotazione n. {n} salvata.",
@@ -1387,6 +1393,16 @@ async function disconnect() {
   notifyChar = writeChar = null;
   if (!mission) releaseWake();
   setState('idle');
+}
+// Éteindre l'Inspectra : seulement connecté et hors surveillance. Envoie SFD puis coupe la liaison.
+async function shutdownDevice() {
+  if (!(bleState === 'connected' || bleState === 'demo') || mission) return;
+  if (!confirm(t('confirmShutdown'))) return;
+  userDisconnect = true;              // l'appareil va se couper : pas de reconnexion auto
+  clearTimeout(reconnectTimer);
+  log(t('logShutdown'));
+  send('SFD');
+  setTimeout(() => disconnect(), 700);   // laisse partir la commande avant de couper
 }
 
 async function readDeviceInfo(server) {
@@ -2122,6 +2138,7 @@ function renderMission() {
   $('startHint').textContent = isLive() ? t('startHintLive') : t('startHintIdle');
   mapRenderMission();
   renderItems();
+  $('btnShutdown').disabled = !(bleState === 'connected' || bleState === 'demo') || on;
   if (!on) return;
   $('mName').textContent = mission.name;
   $('sDist').textContent = fmtDist(trackDist(mission.track));
@@ -2917,6 +2934,7 @@ $('btnConnect').onclick = () => requestDevice({ filters: UARTS.map(u => ({ servi
 // Repli : si le module n'annonce pas son service dans la publicité Bluetooth
 $('btnConnectAll').onclick = () => requestDevice({ acceptAllDevices: true });
 $('btnDisconnect').onclick = disconnect;
+$('btnShutdown').onclick = shutdownDevice;
 $('btnDemo').onclick = () => demoTimer ? stopDemo() : startDemo();
 setState('idle');
 renderStatus();
