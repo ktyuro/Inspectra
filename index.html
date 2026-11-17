@@ -1,0 +1,2558 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>Inspectra – Surveillance</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --mute:#94a3b8;
+    --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --info:#38bdf8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+  main{max-width:520px;margin:0 auto;padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
+  header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+  h1{font-size:20px;margin:0;font-weight:650;letter-spacing:.2px}
+  .ver{font-size:12px;font-weight:500;color:var(--mute);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:2px 6px;vertical-align:3px;margin-left:4px}
+  h2{font-size:13px;margin:0 0 10px;color:var(--mute);text-transform:uppercase;letter-spacing:.8px;font-weight:500}
+  .pill{font-size:13px;padding:5px 10px;border-radius:999px;background:var(--line);color:var(--txt);white-space:nowrap}
+  .pill::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--mute);vertical-align:1px}
+  .pill.connected::before{background:var(--ok)}
+  .pill.connecting::before,.pill.reconnecting::before,.pill.searching::before{background:var(--warn);animation:blink 1s infinite}
+  .pill.failed::before{background:var(--bad)}
+  @keyframes blink{50%{opacity:.25}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+  .main{text-align:center;padding:22px 16px 18px;transition:border-color .2s}
+  .main.alarm{border-color:var(--bad);box-shadow:0 0 0 2px rgba(239,68,68,.35) inset}
+  .lbl{font-size:13px;color:var(--mute);text-transform:uppercase;letter-spacing:.8px}
+  .conc{font-size:80px;line-height:1;font-weight:700;font-variant-numeric:tabular-nums;margin:10px 0 2px;transition:color .2s,opacity .2s}
+  .conc.zero{color:var(--ok)} .conc.pos{color:var(--warn)} .conc.alarm{color:var(--bad)}
+  .conc.idle{opacity:.35}
+  .unit{font-size:16px;color:var(--mute)}
+  .trigger{margin-top:12px;font-size:14px;color:var(--mute)}
+  .trigger b{color:var(--txt)}
+  .trigger.on b{color:var(--ok)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .grid .card{margin:0}
+  .val{font-size:30px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:6px}
+  .val small{font-size:13px;color:var(--mute);font-weight:400}
+  .alarmbadge{display:inline-block;margin-top:8px;font-size:12px;padding:3px 8px;border-radius:6px;background:var(--line);color:var(--mute)}
+  .alarmbadge.on{background:var(--bad);color:#fff}
+  .bars{display:flex;gap:4px;align-items:flex-end;height:34px;margin-top:10px}
+  .bars i{flex:1;background:var(--line);border-radius:2px}
+  .pumprow{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .pumprow .val{font-size:22px}
+  .pumpbtns{display:flex;gap:8px;margin-top:12px}
+  .pumpbtns button{font-size:15px;padding:12px 6px}
+  .pumpbtns button.on{outline:2px solid var(--info);outline-offset:1px}
+  canvas{width:100%;height:170px;display:block;margin-top:8px;touch-action:pan-y;cursor:crosshair}
+  .chead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  #btnLive{background:var(--line);color:var(--mute)}
+  #btnLive.on{background:var(--bad);color:#fff}
+  #chartSlider{width:100%;margin:10px 0 4px;accent-color:var(--info)}
+  .zooms{display:flex;gap:6px}
+  .zooms button{flex:1}
+  .zooms button.on{background:var(--info);color:#0f172a}
+  #chartInfo b{color:var(--txt)}
+  .leaflet-tooltip.curtip{font-weight:600}
+
+  .btns{display:flex;gap:10px;margin:12px 0}
+  button{flex:1;font:inherit;font-size:16px;font-weight:600;padding:14px;border-radius:12px;border:0;cursor:pointer;color:#0f172a;background:var(--info)}
+  button.sec{background:var(--line);color:var(--txt)}
+  button.go{background:var(--ok);color:#052e16}
+  button.danger{background:var(--bad);color:#fff}
+  button.small{flex:0 0 auto;font-size:13px;padding:8px 12px;border-radius:9px}
+  button.link{background:transparent;color:var(--info);font-size:13px;font-weight:500;padding:4px;flex:0 0 auto;text-decoration:underline}
+  button:disabled{opacity:.35;animation:none!important}
+  button.pulse{animation:pulse 1.2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.7)}70%{box-shadow:0 0 0 14px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+  .full{width:100%;display:block}
+
+  .mhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px}
+  .mhead b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rec{color:var(--bad);font-size:13px;white-space:nowrap}
+  .rec::before{content:"● ";animation:blink 1.4s infinite}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-bottom:10px}
+  .stats div{background:var(--bg);border-radius:10px;padding:8px 2px}
+  .stats b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
+  .stats span{font-size:11px;color:var(--mute)}
+  .hint{font-size:13px;color:var(--mute);line-height:1.5;margin:8px 0 0}
+  .hint.bad{color:#fca5a5}
+
+  .info{font-size:13px;color:var(--mute);line-height:1.6}
+  .info b{color:var(--txt);font-weight:500}
+  .list{display:flex;flex-direction:column;gap:8px}
+  .item{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:12px;padding:10px 12px}
+  .item .grow{flex:1;min-width:0}
+  .item .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .s{font-size:12px;color:var(--mute);margin-top:2px}
+  .x{background:transparent;color:var(--mute);font-size:20px;padding:4px 8px;flex:0 0 auto}
+  .empty{font-size:13px;color:var(--mute)}
+  details{font-size:12px}
+  summary{cursor:pointer;color:var(--mute);font-size:13px}
+  #log{font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;margin:8px 0 0;color:#cbd5e1}
+  .warnbox{background:#422006;border:1px solid #a16207;color:#fde68a;border-radius:12px;padding:12px;font-size:14px;margin-bottom:12px;display:none}
+
+  .modal{position:fixed;inset:0;background:rgba(2,6,23,.7);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+  .modal[hidden]{display:none}
+  .sheet{background:var(--card);width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));max-height:94vh;overflow:auto}
+  .sheet h3{margin:0 0 14px;font-size:19px}
+  label{display:block;font-size:13px;color:var(--mute);margin:12px 0 5px}
+  input,textarea{width:100%;font:inherit;font-size:16px;color:var(--txt);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  input.err{border-color:var(--bad)}
+  textarea{min-height:90px;resize:vertical}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px;background:var(--bg);border-radius:12px;padding:12px}
+  .kv span{color:var(--mute)} .kv b{font-weight:600;font-variant-numeric:tabular-nums;word-break:break-word}
+  .kv b.hot{color:var(--bad)}
+  .thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .thumbs div{position:relative;width:92px;height:92px}
+  .thumbs img{width:100%;height:100%;object-fit:cover;border-radius:10px}
+  .thumbs button{position:absolute;top:-6px;right:-6px;width:26px;height:26px;padding:0;border-radius:50%;background:var(--bad);color:#fff;font-size:15px;line-height:26px}
+  .file{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--line);border-radius:12px;padding:13px;font-weight:600;cursor:pointer;margin-top:4px;color:var(--txt)}
+  .file input{display:none}
+
+  #map{height:320px;border-radius:12px;overflow:hidden;background:#cbd5e1;z-index:0}
+  .mapoff{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#334155;font-size:14px}
+  .leaflet-marker-icon.pin{background:#dc2626;border:2.5px solid #fff;border-radius:50%;color:#fff;font:700 13px/23px system-ui;text-align:center;box-sizing:border-box;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+  .mapshown[hidden]{display:none}
+  .mapshown{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mute);margin:-4px 0 8px}
+  .mapshown b{color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #btnLocate.on{background:#1e3a8a;color:#bfdbfe}
+  .leaflet-container{font-family:inherit}
+  .setrow{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin-top:12px;font-size:13px;color:var(--mute)}
+  select{font:inherit;font-size:14px;color:var(--txt);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:7px 8px;width:100%}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Inspectra <span id="appVersion" class="ver"></span></h1>
+    <span id="state" class="pill"></span>
+  </header>
+
+  <div id="support" class="warnbox"></div>
+
+  <!-- Mesure -->
+  <section id="mainCard" class="card main">
+    <div class="lbl" data-i18n="concentration"></div>
+    <div id="conc" class="conc idle">—</div>
+    <div class="unit" id="unit"></div>
+    <div id="measState" class="trigger"></div>
+  </section>
+
+  <!-- Surveillance -->
+  <section class="card" id="missionCard">
+    <div id="missionIdle">
+      <button id="btnStart" class="go full" data-i18n="start"></button>
+      <p class="hint" id="startHint"></p>
+    </div>
+    <div id="missionActive" hidden>
+      <div class="mhead"><b id="mName"></b><span class="rec" data-i18n="recording"></span></div>
+      <div class="stats">
+        <div><b id="sDur">0:00</b><span data-i18n="duration"></span></div>
+        <div><b id="sDist">0 m</b><span data-i18n="distance"></span></div>
+        <div><b id="sAlarms">0</b><span data-i18n="alarms"></span></div>
+        <div><b id="sIndices">0</b><span data-i18n="indices"></span></div>
+      </div>
+      <button id="btnIndice" class="danger full" disabled></button>
+      <p class="hint" id="gpsHint" data-i18n="gpsWaiting"></p>
+      <div class="btns" style="margin-bottom:0"><button id="btnStop" class="sec" data-i18n="stop"></button></div>
+    </div>
+  </section>
+
+  <!-- Carte -->
+  <section class="card" id="mapCard">
+    <div id="mapShown" class="mapshown" hidden><span data-i18n="mapShown"></span> <b id="mapShownName"></b><button class="x" id="btnMapClose" data-i18n-title="backToMe">×</button></div>
+    <div id="map"></div>
+    <div class="btns" style="margin-bottom:0"><button id="btnLocate" class="sec"></button></div>
+    <p class="hint" id="mapHint" data-i18n="mapHint"></p>
+  </section>
+
+  <!-- Courbe des mesures -->
+  <section class="card" id="chartCard">
+    <div class="chead"><div class="lbl" id="chartTitle" data-i18n="history"></div><button id="btnLive" class="small" data-i18n="chartLive"></button></div>
+    <canvas id="chart"></canvas>
+    <input type="range" id="chartSlider" min="0" max="1000" value="1000">
+    <div class="zooms">
+      <button class="small sec" data-span="60000">1 min</button>
+      <button class="small sec" data-span="300000">5 min</button>
+      <button class="small sec" data-span="900000">15 min</button>
+      <button class="small sec" data-span="0" data-i18n="chartAll"></button>
+    </div>
+    <p class="hint" id="chartInfo" data-i18n="chartHint"></p>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <div class="lbl" data-i18n="max"></div>
+      <div class="val" id="max">—</div>
+      <span id="alarm" class="alarmbadge"></span>
+    </section>
+    <section class="card">
+      <div class="lbl" data-i18n="battery"></div>
+      <div class="val" id="bat">—</div>
+      <div class="bars" id="batBars"></div>
+    </section>
+  </div>
+
+  <!-- Pompe -->
+  <section class="card">
+    <div class="pumprow"><div class="lbl" data-i18n="pump"></div><div class="val" id="pump">—</div></div>
+    <div class="pumpbtns">
+      <button class="sec" data-pump="0000" data-i18n="pumpStop"></button>
+      <button class="sec" data-pump="0100" data-i18n="pumpL1"></button>
+      <button class="sec" data-pump="0101" data-i18n="pumpL2"></button>
+    </div>
+    <p class="hint" data-i18n="pumpHint"></p>
+  </section>
+
+  <!-- Connexion -->
+  <div class="btns" style="margin-bottom:4px">
+    <button id="btnConnect" data-i18n="connect"></button>
+    <button id="btnDisconnect" class="sec" disabled data-i18n="disconnect"></button>
+  </div>
+  <div style="text-align:center;margin-bottom:12px"><button id="btnConnectAll" class="link" data-i18n="connectAll"></button></div>
+
+  <section class="card info" id="devinfo" data-i18n="noDevice"></section>
+
+  <section class="card">
+    <h2 data-i18n="knownDevices"></h2>
+    <div class="list" id="devList"></div>
+  </section>
+
+  <section class="card">
+    <h2 data-i18n="missions"></h2>
+    <div class="list" id="missionList"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary data-i18n="log"></summary>
+      <div id="log"></div>
+    </details>
+    <div class="setrow">
+      <label for="modeSel" data-i18n="mode" style="margin:0"></label><select id="modeSel"></select>
+      <label for="langSel" data-i18n="language" style="margin:0"></label><select id="langSel"></select>
+    </div>
+    <div class="btns" style="margin-bottom:0"><button id="btnDemo" class="sec small"></button></div>
+  </section>
+</main>
+
+<!-- Démarrage de mission -->
+<div class="modal" id="dlgStart" hidden>
+  <div class="sheet">
+    <h3 data-i18n="newMission"></h3>
+    <label for="fName" data-i18n="missionName"></label>
+    <input id="fName" data-i18n-ph="missionNamePh">
+    <label for="fOp" data-i18n="operator"></label>
+    <input id="fOp" data-i18n-ph="operatorPh">
+    <label for="fThr"><span data-i18n="threshold"></span> (<span class="u"></span>) *</label>
+    <input id="fThr" type="number" inputmode="decimal" min="0" step="any" data-i18n-ph="thresholdPh">
+    <p class="hint" id="thrHelp" data-i18n="thresholdHelp"></p>
+    <div class="btns"><button class="sec" data-close data-i18n="cancel"></button><button class="go" id="btnStartOk" data-i18n="startOk"></button></div>
+  </div>
+</div>
+
+<!-- Indice -->
+<div class="modal" id="dlgIndice" hidden>
+  <div class="sheet">
+    <h3 id="iTitle"></h3>
+    <div class="kv">
+      <span data-i18n="time"></span><b id="iTime"></b>
+      <span data-i18n="concentration"></span><b id="iConc" class="hot"></b>
+      <span data-i18n="position"></span><b id="iPos"></b>
+    </div>
+    <div class="btns"><button class="sec small" id="btnPosNow" data-i18n="useMyPos"></button></div>
+    <label for="iNote" data-i18n="note"></label>
+    <textarea id="iNote" data-i18n-ph="notePh"></textarea>
+    <label data-i18n="photos"></label>
+    <label class="file"><span data-i18n="addPhoto"></span><input id="iPhoto" type="file" accept="image/*" capture="environment"></label>
+    <div class="thumbs" id="iThumbs"></div>
+    <div class="btns"><button class="sec" data-close data-i18n="cancel"></button><button class="danger" id="btnIndiceOk" data-i18n="saveIndice"></button></div>
+  </div>
+</div>
+
+<!-- Rapport -->
+<div class="modal" id="dlgReport" hidden>
+  <div class="sheet">
+    <h3 data-i18n="pdfReport"></h3>
+    <p class="info" id="rInfo"></p>
+    <button id="btnShare" class="full" data-i18n="send"></button>
+    <div class="btns"><button class="sec" id="btnResend" hidden data-i18n="resend"></button><button class="sec" id="btnDownload" data-i18n="download"></button></div>
+    <div class="btns"><button class="sec" data-close data-i18n="close"></button></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   Paramètres repris de Inspectra.cs
+   ===================================================================== */
+// Deux modules Bluetooth possibles dans l'Inspectra (cf. Uuid_Service0 / Uuid_Service1)
+const UARTS = [
+  { name: 'BGX',  svc: '331a36f5-2459-45ea-9d95-6142f0c4b307',
+    rx: 'a73e9a10-628f-4494-a099-12efaf72258f', tx: 'a9da6040-0823-4995-94ec-9ce41ca28833' },
+  { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
+    rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
+];
+const APP_VERSION = '1.0.0';       // à incrémenter à chaque mise en ligne
+const APP_DATE = '17/11/2026';
+const UNIT = 'ppm·m';              // unité affichée (valeur reçue × 0,1 comme dans le C#)
+const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
+const MEAS_TIMEOUT_MS = 2000;      // sans mesure depuis 2 s => « en attente »
+const POLL_MS = 500;               // interrogation G10 toutes les 0,5 s
+const STATUS_MS = 10000;           // batterie + pompe relues toutes les 10 s
+const ALARM_GAP_MS = 3000;         // au-delà, un nouveau dépassement compte comme une nouvelle alarme
+const REARM_MS = 5000;             // après un indice, une alarme toujours active redevient disponible après 5 s
+const BAT_MAX = 5;                 // nombre de barres de batterie (niveau G73 supposé 0..5)
+
+/* =====================================================================
+   Outils
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => n === null || n === undefined ? '—' : Number(n).toLocaleString(LOCALE, { maximumFractionDigits: 1 });
+const fmtDate = t => new Date(t).toLocaleString(LOCALE, {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const fmtTime = t => new Date(t).toLocaleTimeString(LOCALE);
+const fmtDur = ms => { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h} h ${String(m).padStart(2,'0')}` : `${m}:${String(s % 60).padStart(2,'0')}`; };
+const fmtDurLong = ms => { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return (h ? h + ' h ' : '') + m + ' min ' + (s % 60) + ' s'; };
+const fmtDist = m => m < 1000 ? Math.round(m) + ' m' : (m / 1000).toLocaleString(LOCALE, { maximumFractionDigits: 2 }) + ' km';
+const fmtPos = p => p ? `${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}` : t('unavailable');
+const mapUrl = p => `https://www.google.com/maps?q=${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
+function hav(a, b) {
+  const R = 6371000, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+const trackDist = tr => tr.reduce((d, p, i) => i ? d + hav(tr[i - 1], p) : 0, 0);
+
+function log(msg) {
+  const el = $('log');
+  el.textContent = `[${fmtTime(Date.now())}] ${msg}\n` + el.textContent.split('\n').slice(0, 150).join('\n');
+}
+function openModal(id) { $(id).hidden = false; }
+function closeModal(id) { $(id).hidden = true; }
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeModal(b.closest('.modal').id));
+
+/* =====================================================================
+   Stockage : appareils (localStorage) et missions (IndexedDB)
+   Clés préfixées « insp_ » : pas de mélange avec le Gazoscan s'ils sont
+   hébergés sur le même compte GitHub (même origine).
+   ===================================================================== */
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const db = (() => {
+  let p;
+  const open = () => p ||= new Promise((res, rej) => {
+    const r = indexedDB.open('inspectra', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('missions', { keyPath: 'id' });
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  const tx = async (mode, fn) => {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const t = d.transaction('missions', mode), r = fn(t.objectStore('missions'));
+      t.oncomplete = () => res(r && r.result);
+      t.onerror = () => rej(t.error);
+    });
+  };
+  return {
+    put: m => tx('readwrite', s => s.put(m)),
+    get: id => tx('readonly', s => s.get(id)),
+    all: () => tx('readonly', s => s.getAll()),
+    del: id => tx('readwrite', s => s.delete(id))
+  };
+})();
+
+/* =====================================================================
+   Langues : détection automatique (langue d'Android) + choix manuel
+   Pour ajouter une langue : copier le bloc "en" et le traduire.
+   ===================================================================== */
+const I18N = {
+ "fr": {
+  "state.idle": "Déconnecté", "state.searching": "Recherche…", "state.connecting": "Connexion…",
+  "state.connected": "Connecté", "state.reconnecting": "Reconnexion…", "state.failed": "Échec", "state.demo": "Démo",
+  "docTitle": "Inspectra v{v} – Surveillance",
+  "versionOf": "Version du {d}",
+  "concentration": "Concentration",
+  "measure": "Mesure",
+  "measLive": "en cours",
+  "measWait": "en attente",
+  "start": "Commencer la surveillance",
+  "recording": "Surveillance",
+  "duration": "Durée", "distance": "Distance", "alarms": "Alarmes", "indices": "Indices", "indice": "Indice",
+  "gpsWaiting": "GPS : en attente…",
+  "stop": "Terminer la mission",
+  "mapShown": "Mission affichée :",
+  "backToMe": "Revenir à ma position",
+  "locate": "📍 Me localiser", "following": "📍 Suivi actif", "recenter": "📍 Recentrer sur moi",
+  "mapHint": "Touche « Me localiser » pour afficher ta position.",
+  "max": "Max",
+  "battery": "Batterie",
+  "batLevel": "niv. {n}",
+  "pump": "Pompe",
+  "pump.off": "Arrêtée", "pump.block": "Bloquée", "pump.s1": "Niveau 1", "pump.s2": "Niveau 2", "pump.err": "—",
+  "pumpStop": "Arrêt", "pumpL1": "Niv. 1", "pumpL2": "Niv. 2",
+  "pumpHint": "Commande envoyée à l’Inspectra connecté (S1B), état relu ensuite (G1B).",
+  "history": "Historique des mesures",
+  "connect": "Connecter",
+  "connectAll": "Inspectra absent de la liste ? Afficher tous les appareils",
+  "disconnect": "Déconnecter",
+  "noDevice": "Aucun appareil connecté.",
+  "knownDevices": "Appareils déjà connectés",
+  "missions": "Missions",
+  "log": "Journal",
+  "demo": "Mode démo", "stopDemo": "Arrêter la démo",
+  "language": "Langue", "langAuto": "Automatique (Android)",
+  "mode": "Mesure",
+  "modeAuto": "Automatique (U10)",
+  "modePoll": "Interrogation (G10)",
+  "newMission": "Nouvelle surveillance",
+  "missionName": "Nom de la mission", "missionNamePh": "Rue, secteur, n° d’intervention…",
+  "operator": "Opérateur", "operatorPh": "Nom de l’opérateur",
+  "threshold": "Seuil d’alarme",
+  "thresholdPh": "Ex. 100",
+  "thresholdHelp": "Obligatoire. Un dépassement est détecté quand la concentration atteint ce seuil.",
+  "thrRequired": "Saisis un seuil d’alarme supérieur à 0.",
+  "cancel": "Annuler", "startOk": "Démarrer",
+  "time": "Heure", "position": "Position", "useMyPos": "Utiliser ma position actuelle",
+  "note": "Annotation", "notePh": "Description, repère, type d’ouvrage…",
+  "photos": "Photos", "addPhoto": "📷 Ajouter une photo", "saveIndice": "Enregistrer l’indice",
+  "pdfReport": "Rapport PDF", "send": "Envoyer…", "resend": "Renvoyer", "download": "Télécharger", "close": "Fermer",
+  "needHttps": "Cette page doit être servie en HTTPS pour utiliser le Bluetooth et le GPS.",
+  "noBluetooth": "Web Bluetooth non disponible. Utilisez Chrome, Edge ou Samsung Internet sur Android (pas Firefox, pas iPhone).",
+  "unnamed": "(sans nom)",
+  "noKnown": "Aucun appareil pour l’instant.",
+  "lastConn": "Dernière connexion : {d}",
+  "connCount": "{n} connexion(s)",
+  "forget": "Oublier",
+  "timeout": "{w} : délai dépassé",
+  "logSelCancel": "Sélection annulée : {e}",
+  "logKnown": "Appareil autorisé retrouvé, connexion directe.",
+  "logDevice": "Appareil : {n} [{id}]",
+  "logConnected": "Connecté ({l}), notifications actives.",
+  "logNoUart": "Service série Inspectra (BGX / NINA) introuvable sur cet appareil.",
+  "logFail": "Échec : {e}",
+  "logLost": "Liaison perdue.",
+  "logRetry": "Nouvelle tentative dans {s} s…",
+  "logRx": "Reçu : {f}",
+  "logTx": "Envoi : {c}",
+  "logTxErr": "Envoi impossible ({c}) : {e}",
+  "logPoll": "Pas de mesure automatique : interrogation G10.",
+  "logAutoOk": "Envoi automatique activé (A80).",
+  "logSaveErr": "Sauvegarde impossible : {e}",
+  "logStarted": "Surveillance démarrée : {n}",
+  "logAlarm": "Alarme n°{n} : {c}",
+  "logEnded": "Surveillance terminée.",
+  "logResumed": "Surveillance en cours reprise.",
+  "logIndice": "Indice n°{n} enregistré.",
+  "logReportErr": "Erreur rapport : {e}",
+  "logSent": "Rapport envoyé : {n}",
+  "logShareErr": "Partage impossible : {e}",
+  "logOsmNone": "Fond de carte OSM indisponible pour le PDF.",
+  "logOsm": "Fond de carte OSM : {e}",
+  "dev.Appareil": "Appareil", "dev.Liaison": "Module Bluetooth", "dev.Série": "N° de série",
+  "dev.Fabricant": "Fabricant", "dev.Modèle": "Modèle", "dev.Firmware": "Firmware",
+  "thrNone": "Seuil : saisi au démarrage",
+  "thr": "Seuil {v}",
+  "exceeded": "DÉPASSÉ",
+  "gpsNone": "GPS indisponible sur ce navigateur.",
+  "gpsSearching": "GPS : recherche de la position…",
+  "gpsPos": "GPS : {p} (± {a} m)",
+  "gpsDenied": "GPS refusé : autorisez la localisation pour ce site dans Chrome.",
+  "gpsErr": "GPS : {e}",
+  "mapOff": "Carte indisponible : pas de connexion internet au chargement de la page.",
+  "alarmN": "Alarme n°{n}", "indiceN": "Indice n°{n}", "nShort": "n°{n}",
+  "startHintLive": "Enregistre le trajet GPS et les dépassements d’alarme, puis génère un rapport PDF.",
+  "startHintIdle": "Connecte l’Inspectra pour détecter les alarmes. Le trajet GPS est enregistré dans tous les cas.",
+  "missionDefault": "Mission du {d}",
+  "indiceAvail": "Indice disponible : {c}",
+  "indiceWait": "Indice (en attente d’un dépassement)",
+  "confirmStop": "Terminer la surveillance et générer le rapport ?",
+  "noPosYet": "Position GPS pas encore disponible.",
+  "unavailable": "indisponible",
+  "badPhoto": "Photo illisible : {e}", "badFormat": "format non pris en charge",
+  "noMissions": "Aucune mission terminée.",
+  "counts": "{a} alarme(s) · {i} indice(s)",
+  "sentShort": "✓ envoyé",
+  "map": "Carte", "delete": "Supprimer",
+  "confirmDel": "Supprimer définitivement cette mission et ses photos ?",
+  "reportFile": "Rapport_Inspectra",
+  "generating": "Génération du rapport…",
+  "generatingMap": "Génération du rapport et du fond de carte…",
+  "reportErr": "Impossible de générer le rapport : {e}",
+  "alreadySent": "✓ Déjà envoyé le {d}",
+  "shareTitle": "Rapport Inspectra – {n}",
+  "shareText": "Rapport de surveillance Inspectra : {n} ({d})",
+  "confirmResend": "Ce rapport a déjà été envoyé le {d}. L’envoyer à nouveau ?",
+  "rTitle": "Rapport de surveillance Inspectra",
+  "maxConc": "Concentration max",
+  "rMission": "Mission", "rStart": "Début", "rEnd": "Fin",
+  "rMakerModel": "Fabricant / modèle", "rFwSw": "Firmware",
+  "rDetection": "Détection",
+  "detUser": "Concentration >= {v} (seuil saisi)",
+  "rGpsPts": "Points GPS",
+  "plan": "Plan du parcours",
+  "noGps": "Aucune position GPS enregistrée pendant la mission.",
+  "osmAttr": "© contributeurs OpenStreetMap",
+  "north": "N",
+  "legTrack": "Trajet", "legStart": "Départ", "legEnd": "Arrivée", "legAlarm": "Alarme sans indice",
+  "alarmsDetected": "Alarmes détectées ({n})",
+  "noAlarms": "Aucun dépassement d’alarme pendant la mission.",
+  "colN": "N°", "colPos": "Position GPS", "noPos": "position indisponible",
+  "indicesTitle": "Indices ({n})", "noIndices": "Aucun indice enregistré.",
+  "dateTime": "Date et heure", "at": "{d} à {t}", "alarm": "Alarme",
+  "openMap": "{p} (± {a} m) – ouvrir la carte",
+  "generated": "Généré le {d} par Inspectra Web v{v}",
+  "page": "Page {i} / {n}",
+  "chartLive": "● Direct", "chartAll": "Tout",
+  "chartHint": "Touche la courbe (ou le trajet sur la carte) pour voir où une mesure a été prise. Le curseur sous la courbe permet de revenir en arrière.",
+  "cursorInfo": "{t} · {c} · {p}",
+  "posUnknown": "position inconnue",
+  "noSamples": "Pas de mesures enregistrées pour cette mission.",
+  "chartMission": "Mission : {n}"
+ },
+ "en": {
+  "state.idle": "Disconnected", "state.searching": "Searching…", "state.connecting": "Connecting…",
+  "state.connected": "Connected", "state.reconnecting": "Reconnecting…", "state.failed": "Failed", "state.demo": "Demo",
+  "docTitle": "Inspectra v{v} – Monitoring",
+  "versionOf": "Version of {d}",
+  "concentration": "Concentration",
+  "measure": "Measurement",
+  "measLive": "live",
+  "measWait": "waiting",
+  "start": "Start monitoring",
+  "recording": "Monitoring",
+  "duration": "Duration", "distance": "Distance", "alarms": "Alarms", "indices": "Leaks", "indice": "Leak",
+  "gpsWaiting": "GPS: waiting…",
+  "stop": "End mission",
+  "mapShown": "Mission shown:",
+  "backToMe": "Back to my position",
+  "locate": "📍 Locate me", "following": "📍 Following", "recenter": "📍 Recenter on me",
+  "mapHint": "Tap “Locate me” to show your position.",
+  "max": "Max",
+  "battery": "Battery",
+  "batLevel": "lvl {n}",
+  "pump": "Pump",
+  "pump.off": "Off", "pump.block": "Blocked", "pump.s1": "Level 1", "pump.s2": "Level 2", "pump.err": "—",
+  "pumpStop": "Stop", "pumpL1": "Lvl 1", "pumpL2": "Lvl 2",
+  "pumpHint": "Command sent to the connected Inspectra (S1B), then the state is read back (G1B).",
+  "history": "Measurement history",
+  "connect": "Connect",
+  "connectAll": "Inspectra not listed? Show all devices",
+  "disconnect": "Disconnect",
+  "noDevice": "No device connected.",
+  "knownDevices": "Previously connected devices",
+  "missions": "Missions",
+  "log": "Log",
+  "demo": "Demo mode", "stopDemo": "Stop demo",
+  "language": "Language", "langAuto": "Automatic (Android)",
+  "mode": "Measurement",
+  "modeAuto": "Automatic (U10)",
+  "modePoll": "Polling (G10)",
+  "newMission": "New monitoring",
+  "missionName": "Mission name", "missionNamePh": "Street, area, job number…",
+  "operator": "Operator", "operatorPh": "Operator name",
+  "threshold": "Alarm threshold",
+  "thresholdPh": "e.g. 100",
+  "thresholdHelp": "Required. An alarm is detected when the concentration reaches this threshold.",
+  "thrRequired": "Enter an alarm threshold greater than 0.",
+  "cancel": "Cancel", "startOk": "Start",
+  "time": "Time", "position": "Position", "useMyPos": "Use my current position",
+  "note": "Note", "notePh": "Description, landmark, type of structure…",
+  "photos": "Photos", "addPhoto": "📷 Add a photo", "saveIndice": "Save leak",
+  "pdfReport": "PDF report", "send": "Send…", "resend": "Send again", "download": "Download", "close": "Close",
+  "needHttps": "This page must be served over HTTPS to use Bluetooth and GPS.",
+  "noBluetooth": "Web Bluetooth not available. Use Chrome, Edge or Samsung Internet on Android (not Firefox, not iPhone).",
+  "unnamed": "(no name)",
+  "noKnown": "No device yet.",
+  "lastConn": "Last connection: {d}",
+  "connCount": "{n} connection(s)",
+  "forget": "Forget",
+  "timeout": "{w}: timed out",
+  "logSelCancel": "Selection cancelled: {e}",
+  "logKnown": "Authorised device found, connecting directly.",
+  "logDevice": "Device: {n} [{id}]",
+  "logConnected": "Connected ({l}), notifications active.",
+  "logNoUart": "Inspectra serial service (BGX / NINA) not found on this device.",
+  "logFail": "Failed: {e}",
+  "logLost": "Connection lost.",
+  "logRetry": "Retrying in {s} s…",
+  "logRx": "Received: {f}",
+  "logTx": "Sending: {c}",
+  "logTxErr": "Could not send ({c}): {e}",
+  "logPoll": "No automatic measurement: polling with G10.",
+  "logAutoOk": "Automatic sending enabled (A80).",
+  "logSaveErr": "Could not save: {e}",
+  "logStarted": "Monitoring started: {n}",
+  "logAlarm": "Alarm #{n}: {c}",
+  "logEnded": "Monitoring ended.",
+  "logResumed": "Ongoing monitoring resumed.",
+  "logIndice": "Leak #{n} saved.",
+  "logReportErr": "Report error: {e}",
+  "logSent": "Report sent: {n}",
+  "logShareErr": "Sharing failed: {e}",
+  "logOsmNone": "OSM base map unavailable for the PDF.",
+  "logOsm": "OSM base map: {e}",
+  "dev.Appareil": "Device", "dev.Liaison": "Bluetooth module", "dev.Série": "Serial number",
+  "dev.Fabricant": "Manufacturer", "dev.Modèle": "Model", "dev.Firmware": "Firmware",
+  "thrNone": "Threshold: set at start",
+  "thr": "Threshold {v}",
+  "exceeded": "EXCEEDED",
+  "gpsNone": "GPS not available in this browser.",
+  "gpsSearching": "GPS: searching for position…",
+  "gpsPos": "GPS: {p} (± {a} m)",
+  "gpsDenied": "GPS denied: allow location for this site in Chrome.",
+  "gpsErr": "GPS: {e}",
+  "mapOff": "Map unavailable: no internet connection when the page loaded.",
+  "alarmN": "Alarm #{n}", "indiceN": "Leak #{n}", "nShort": "#{n}",
+  "startHintLive": "Records the GPS track and alarm events, then generates a PDF report.",
+  "startHintIdle": "Connect the Inspectra to detect alarms. The GPS track is recorded in any case.",
+  "missionDefault": "Mission of {d}",
+  "indiceAvail": "Leak available: {c}",
+  "indiceWait": "Leak (waiting for an alarm)",
+  "confirmStop": "End monitoring and generate the report?",
+  "noPosYet": "GPS position not available yet.",
+  "unavailable": "unavailable",
+  "badPhoto": "Unreadable photo: {e}", "badFormat": "unsupported format",
+  "noMissions": "No completed mission.",
+  "counts": "{a} alarm(s) · {i} leak(s)",
+  "sentShort": "✓ sent",
+  "map": "Map", "delete": "Delete",
+  "confirmDel": "Permanently delete this mission and its photos?",
+  "reportFile": "Inspectra_Report",
+  "generating": "Generating report…",
+  "generatingMap": "Generating report and base map…",
+  "reportErr": "Unable to generate the report: {e}",
+  "alreadySent": "✓ Already sent on {d}",
+  "shareTitle": "Inspectra report – {n}",
+  "shareText": "Inspectra monitoring report: {n} ({d})",
+  "confirmResend": "This report was already sent on {d}. Send it again?",
+  "rTitle": "Inspectra monitoring report",
+  "maxConc": "Max concentration",
+  "rMission": "Mission", "rStart": "Start", "rEnd": "End",
+  "rMakerModel": "Manufacturer / model", "rFwSw": "Firmware",
+  "rDetection": "Detection",
+  "detUser": "Concentration >= {v} (entered threshold)",
+  "rGpsPts": "GPS points",
+  "plan": "Route map",
+  "noGps": "No GPS position recorded during the mission.",
+  "osmAttr": "© OpenStreetMap contributors",
+  "north": "N",
+  "legTrack": "Track", "legStart": "Start", "legEnd": "End", "legAlarm": "Alarm without leak",
+  "alarmsDetected": "Detected alarms ({n})",
+  "noAlarms": "No alarm during the mission.",
+  "colN": "#", "colPos": "GPS position", "noPos": "position unavailable",
+  "indicesTitle": "Leaks ({n})", "noIndices": "No leak recorded.",
+  "dateTime": "Date and time", "at": "{d} at {t}", "alarm": "Alarm",
+  "openMap": "{p} (± {a} m) – open map",
+  "generated": "Generated on {d} by Inspectra Web v{v}",
+  "page": "Page {i} / {n}",
+  "chartLive": "● Live", "chartAll": "All",
+  "chartHint": "Tap the curve (or the track on the map) to see where a measurement was taken. Use the slider below the curve to go back in time.",
+  "cursorInfo": "{t} · {c} · {p}",
+  "posUnknown": "position unknown",
+  "noSamples": "No measurements recorded for this mission.",
+  "chartMission": "Mission: {n}"
+ },
+ "de": {
+  "state.idle": "Getrennt", "state.searching": "Suche…", "state.connecting": "Verbinden…",
+  "state.connected": "Verbunden", "state.reconnecting": "Neu verbinden…", "state.failed": "Fehler", "state.demo": "Demo",
+  "docTitle": "Inspectra v{v} – Überwachung",
+  "versionOf": "Version vom {d}",
+  "concentration": "Konzentration",
+  "measure": "Messung", "measLive": "läuft", "measWait": "wartet",
+  "start": "Überwachung starten",
+  "recording": "Überwachung",
+  "duration": "Dauer", "distance": "Strecke", "alarms": "Alarme", "indices": "Hinweise", "indice": "Hinweis",
+  "gpsWaiting": "GPS: warten…",
+  "stop": "Einsatz beenden",
+  "mapShown": "Angezeigter Einsatz:",
+  "backToMe": "Zurück zu meiner Position",
+  "locate": "📍 Mich orten", "following": "📍 Verfolgung aktiv", "recenter": "📍 Auf mich zentrieren",
+  "mapHint": "Tippe auf „Mich orten“, um deine Position anzuzeigen.",
+  "max": "Max",
+  "battery": "Akku", "batLevel": "Stufe {n}",
+  "pump": "Pumpe",
+  "pump.off": "Aus", "pump.block": "Blockiert", "pump.s1": "Stufe 1", "pump.s2": "Stufe 2", "pump.err": "—",
+  "pumpStop": "Stopp", "pumpL1": "Stufe 1", "pumpL2": "Stufe 2",
+  "pumpHint": "Befehl an den verbundenen Inspectra (S1B), danach wird der Zustand gelesen (G1B).",
+  "history": "Messverlauf",
+  "connect": "Verbinden",
+  "connectAll": "Inspectra nicht in der Liste? Alle Geräte anzeigen",
+  "disconnect": "Trennen",
+  "noDevice": "Kein Gerät verbunden.",
+  "knownDevices": "Bereits verbundene Geräte",
+  "missions": "Einsätze",
+  "log": "Protokoll",
+  "demo": "Demomodus", "stopDemo": "Demo beenden",
+  "language": "Sprache", "langAuto": "Automatisch (Android)",
+  "mode": "Messung", "modeAuto": "Automatisch (U10)", "modePoll": "Abfrage (G10)",
+  "newMission": "Neue Überwachung",
+  "missionName": "Name des Einsatzes", "missionNamePh": "Straße, Gebiet, Auftragsnummer…",
+  "operator": "Bediener", "operatorPh": "Name des Bedieners",
+  "threshold": "Alarmschwelle", "thresholdPh": "z. B. 100",
+  "thresholdHelp": "Pflichtfeld. Eine Überschreitung wird erkannt, wenn die Konzentration diese Schwelle erreicht.",
+  "thrRequired": "Gib eine Alarmschwelle größer als 0 ein.",
+  "cancel": "Abbrechen", "startOk": "Starten",
+  "time": "Uhrzeit", "position": "Position", "useMyPos": "Aktuelle Position verwenden",
+  "note": "Notiz", "notePh": "Beschreibung, Orientierungspunkt, Bauwerkstyp…",
+  "photos": "Fotos", "addPhoto": "📷 Foto hinzufügen", "saveIndice": "Hinweis speichern",
+  "pdfReport": "PDF-Bericht", "send": "Senden…", "resend": "Erneut senden", "download": "Herunterladen", "close": "Schließen",
+  "needHttps": "Diese Seite muss über HTTPS geladen werden, um Bluetooth und GPS zu nutzen.",
+  "noBluetooth": "Web Bluetooth nicht verfügbar. Verwende Chrome, Edge oder Samsung Internet auf Android (nicht Firefox, nicht iPhone).",
+  "unnamed": "(ohne Namen)",
+  "noKnown": "Noch kein Gerät.",
+  "lastConn": "Letzte Verbindung: {d}",
+  "connCount": "{n} Verbindung(en)",
+  "forget": "Vergessen",
+  "timeout": "{w}: Zeitüberschreitung",
+  "logSelCancel": "Auswahl abgebrochen: {e}",
+  "logKnown": "Autorisiertes Gerät gefunden, direkte Verbindung.",
+  "logDevice": "Gerät: {n} [{id}]",
+  "logConnected": "Verbunden ({l}), Benachrichtigungen aktiv.",
+  "logNoUart": "Serieller Inspectra-Dienst (BGX / NINA) auf diesem Gerät nicht gefunden.",
+  "logFail": "Fehler: {e}",
+  "logLost": "Verbindung verloren.",
+  "logRetry": "Neuer Versuch in {s} s…",
+  "logRx": "Empfangen: {f}", "logTx": "Senden: {c}", "logTxErr": "Senden nicht möglich ({c}): {e}",
+  "logPoll": "Keine automatische Messung: Abfrage mit G10.",
+  "logAutoOk": "Automatisches Senden aktiviert (A80).",
+  "logSaveErr": "Speichern nicht möglich: {e}",
+  "logStarted": "Überwachung gestartet: {n}",
+  "logAlarm": "Alarm Nr. {n}: {c}",
+  "logEnded": "Überwachung beendet.",
+  "logResumed": "Laufende Überwachung fortgesetzt.",
+  "logIndice": "Hinweis Nr. {n} gespeichert.",
+  "logReportErr": "Berichtsfehler: {e}",
+  "logSent": "Bericht gesendet: {n}",
+  "logShareErr": "Teilen nicht möglich: {e}",
+  "logOsmNone": "OSM-Hintergrundkarte für das PDF nicht verfügbar.",
+  "logOsm": "OSM-Hintergrundkarte: {e}",
+  "dev.Appareil": "Gerät", "dev.Liaison": "Bluetooth-Modul", "dev.Série": "Seriennummer",
+  "dev.Fabricant": "Hersteller", "dev.Modèle": "Modell", "dev.Firmware": "Firmware",
+  "thrNone": "Schwelle: beim Start festlegen",
+  "thr": "Schwelle {v}",
+  "exceeded": "ÜBERSCHRITTEN",
+  "gpsNone": "GPS in diesem Browser nicht verfügbar.",
+  "gpsSearching": "GPS: Position wird gesucht…",
+  "gpsPos": "GPS: {p} (± {a} m)",
+  "gpsDenied": "GPS verweigert: Standortzugriff für diese Seite in Chrome erlauben.",
+  "gpsErr": "GPS: {e}",
+  "mapOff": "Karte nicht verfügbar: keine Internetverbindung beim Laden der Seite.",
+  "alarmN": "Alarm Nr. {n}", "indiceN": "Hinweis Nr. {n}", "nShort": "Nr. {n}",
+  "startHintLive": "Zeichnet die GPS-Strecke und Alarmüberschreitungen auf und erstellt dann einen PDF-Bericht.",
+  "startHintIdle": "Verbinde den Inspectra, um Alarme zu erkennen. Die GPS-Strecke wird in jedem Fall aufgezeichnet.",
+  "missionDefault": "Einsatz vom {d}",
+  "indiceAvail": "Hinweis verfügbar: {c}",
+  "indiceWait": "Hinweis (wartet auf Überschreitung)",
+  "confirmStop": "Überwachung beenden und Bericht erstellen?",
+  "noPosYet": "GPS-Position noch nicht verfügbar.",
+  "unavailable": "nicht verfügbar",
+  "badPhoto": "Foto nicht lesbar: {e}", "badFormat": "Format nicht unterstützt",
+  "noMissions": "Kein abgeschlossener Einsatz.",
+  "counts": "{a} Alarm(e) · {i} Hinweis(e)",
+  "sentShort": "✓ gesendet",
+  "map": "Karte", "delete": "Löschen",
+  "confirmDel": "Diesen Einsatz und seine Fotos endgültig löschen?",
+  "reportFile": "Inspectra_Bericht",
+  "generating": "Bericht wird erstellt…",
+  "generatingMap": "Bericht und Hintergrundkarte werden erstellt…",
+  "reportErr": "Bericht kann nicht erstellt werden: {e}",
+  "alreadySent": "✓ Bereits gesendet am {d}",
+  "shareTitle": "Inspectra-Bericht – {n}",
+  "shareText": "Inspectra-Überwachungsbericht: {n} ({d})",
+  "confirmResend": "Dieser Bericht wurde bereits am {d} gesendet. Erneut senden?",
+  "rTitle": "Inspectra-Überwachungsbericht",
+  "maxConc": "Max. Konzentration",
+  "rMission": "Einsatz", "rStart": "Beginn", "rEnd": "Ende",
+  "rMakerModel": "Hersteller / Modell", "rFwSw": "Firmware",
+  "rDetection": "Erkennung",
+  "detUser": "Konzentration >= {v} (eingegebene Schwelle)",
+  "rGpsPts": "GPS-Punkte",
+  "plan": "Streckenplan",
+  "noGps": "Während des Einsatzes wurde keine GPS-Position aufgezeichnet.",
+  "osmAttr": "© OpenStreetMap-Mitwirkende",
+  "north": "N",
+  "legTrack": "Strecke", "legStart": "Start", "legEnd": "Ziel", "legAlarm": "Alarm ohne Hinweis",
+  "alarmsDetected": "Erkannte Alarme ({n})",
+  "noAlarms": "Keine Alarmüberschreitung während des Einsatzes.",
+  "colN": "Nr.", "colPos": "GPS-Position", "noPos": "Position nicht verfügbar",
+  "indicesTitle": "Hinweise ({n})", "noIndices": "Kein Hinweis gespeichert.",
+  "dateTime": "Datum und Uhrzeit", "at": "{d} um {t}", "alarm": "Alarm",
+  "openMap": "{p} (± {a} m) – Karte öffnen",
+  "generated": "Erstellt am {d} mit Inspectra Web v{v}",
+  "page": "Seite {i} / {n}",
+  "chartLive": "● Live", "chartAll": "Alle",
+  "chartHint": "Tippe auf die Kurve (oder die Strecke auf der Karte), um zu sehen, wo ein Messwert aufgenommen wurde. Mit dem Schieberegler unter der Kurve gehst du zurück.",
+  "cursorInfo": "{t} · {c} · {p}",
+  "posUnknown": "Position unbekannt",
+  "noSamples": "Für diesen Einsatz wurden keine Messwerte gespeichert.",
+  "chartMission": "Einsatz: {n}"
+ },
+ "es": {
+  "state.idle": "Desconectado", "state.searching": "Buscando…", "state.connecting": "Conectando…",
+  "state.connected": "Conectado", "state.reconnecting": "Reconectando…", "state.failed": "Error", "state.demo": "Demo",
+  "docTitle": "Inspectra v{v} – Vigilancia",
+  "versionOf": "Versión del {d}",
+  "concentration": "Concentración",
+  "measure": "Medición", "measLive": "en curso", "measWait": "en espera",
+  "start": "Iniciar vigilancia",
+  "recording": "Vigilancia",
+  "duration": "Duración", "distance": "Distancia", "alarms": "Alarmas", "indices": "Indicios", "indice": "Indicio",
+  "gpsWaiting": "GPS: esperando…",
+  "stop": "Finalizar misión",
+  "mapShown": "Misión mostrada:",
+  "backToMe": "Volver a mi posición",
+  "locate": "📍 Localizarme", "following": "📍 Seguimiento activo", "recenter": "📍 Centrar en mí",
+  "mapHint": "Pulsa «Localizarme» para ver tu posición.",
+  "max": "Máx",
+  "battery": "Batería", "batLevel": "niv. {n}",
+  "pump": "Bomba",
+  "pump.off": "Parada", "pump.block": "Bloqueada", "pump.s1": "Nivel 1", "pump.s2": "Nivel 2", "pump.err": "—",
+  "pumpStop": "Parar", "pumpL1": "Niv. 1", "pumpL2": "Niv. 2",
+  "pumpHint": "Orden enviada al Inspectra conectado (S1B); después se lee el estado (G1B).",
+  "history": "Historial de mediciones",
+  "connect": "Conectar",
+  "connectAll": "¿No aparece el Inspectra? Mostrar todos los dispositivos",
+  "disconnect": "Desconectar",
+  "noDevice": "Ningún dispositivo conectado.",
+  "knownDevices": "Dispositivos ya conectados",
+  "missions": "Misiones",
+  "log": "Registro",
+  "demo": "Modo demo", "stopDemo": "Detener demo",
+  "language": "Idioma", "langAuto": "Automático (Android)",
+  "mode": "Medición", "modeAuto": "Automática (U10)", "modePoll": "Consulta (G10)",
+  "newMission": "Nueva vigilancia",
+  "missionName": "Nombre de la misión", "missionNamePh": "Calle, sector, n.º de intervención…",
+  "operator": "Operador", "operatorPh": "Nombre del operador",
+  "threshold": "Umbral de alarma", "thresholdPh": "p. ej. 100",
+  "thresholdHelp": "Obligatorio. Se detecta una superación cuando la concentración alcanza este umbral.",
+  "thrRequired": "Introduce un umbral de alarma mayor que 0.",
+  "cancel": "Cancelar", "startOk": "Iniciar",
+  "time": "Hora", "position": "Posición", "useMyPos": "Usar mi posición actual",
+  "note": "Anotación", "notePh": "Descripción, referencia, tipo de instalación…",
+  "photos": "Fotos", "addPhoto": "📷 Añadir una foto", "saveIndice": "Guardar indicio",
+  "pdfReport": "Informe PDF", "send": "Enviar…", "resend": "Reenviar", "download": "Descargar", "close": "Cerrar",
+  "needHttps": "Esta página debe servirse por HTTPS para usar Bluetooth y GPS.",
+  "noBluetooth": "Web Bluetooth no disponible. Usa Chrome, Edge o Samsung Internet en Android (no Firefox, no iPhone).",
+  "unnamed": "(sin nombre)",
+  "noKnown": "Ningún dispositivo por ahora.",
+  "lastConn": "Última conexión: {d}",
+  "connCount": "{n} conexión(es)",
+  "forget": "Olvidar",
+  "timeout": "{w}: tiempo agotado",
+  "logSelCancel": "Selección cancelada: {e}",
+  "logKnown": "Dispositivo autorizado encontrado, conexión directa.",
+  "logDevice": "Dispositivo: {n} [{id}]",
+  "logConnected": "Conectado ({l}), notificaciones activas.",
+  "logNoUart": "Servicio serie del Inspectra (BGX / NINA) no encontrado en este dispositivo.",
+  "logFail": "Error: {e}",
+  "logLost": "Conexión perdida.",
+  "logRetry": "Nuevo intento en {s} s…",
+  "logRx": "Recibido: {f}", "logTx": "Envío: {c}", "logTxErr": "No se pudo enviar ({c}): {e}",
+  "logPoll": "Sin medición automática: consulta con G10.",
+  "logAutoOk": "Envío automático activado (A80).",
+  "logSaveErr": "No se pudo guardar: {e}",
+  "logStarted": "Vigilancia iniciada: {n}",
+  "logAlarm": "Alarma n.º {n}: {c}",
+  "logEnded": "Vigilancia finalizada.",
+  "logResumed": "Vigilancia en curso reanudada.",
+  "logIndice": "Indicio n.º {n} guardado.",
+  "logReportErr": "Error del informe: {e}",
+  "logSent": "Informe enviado: {n}",
+  "logShareErr": "No se pudo compartir: {e}",
+  "logOsmNone": "Mapa base OSM no disponible para el PDF.",
+  "logOsm": "Mapa base OSM: {e}",
+  "dev.Appareil": "Dispositivo", "dev.Liaison": "Módulo Bluetooth", "dev.Série": "N.º de serie",
+  "dev.Fabricant": "Fabricante", "dev.Modèle": "Modelo", "dev.Firmware": "Firmware",
+  "thrNone": "Umbral: se fija al iniciar",
+  "thr": "Umbral {v}",
+  "exceeded": "SUPERADO",
+  "gpsNone": "GPS no disponible en este navegador.",
+  "gpsSearching": "GPS: buscando la posición…",
+  "gpsPos": "GPS: {p} (± {a} m)",
+  "gpsDenied": "GPS denegado: permite la ubicación para este sitio en Chrome.",
+  "gpsErr": "GPS: {e}",
+  "mapOff": "Mapa no disponible: sin conexión a internet al cargar la página.",
+  "alarmN": "Alarma n.º {n}", "indiceN": "Indicio n.º {n}", "nShort": "n.º {n}",
+  "startHintLive": "Registra el recorrido GPS y las superaciones de alarma, y luego genera un informe PDF.",
+  "startHintIdle": "Conecta el Inspectra para detectar alarmas. El recorrido GPS se registra en todo caso.",
+  "missionDefault": "Misión del {d}",
+  "indiceAvail": "Indicio disponible: {c}",
+  "indiceWait": "Indicio (esperando una superación)",
+  "confirmStop": "¿Finalizar la vigilancia y generar el informe?",
+  "noPosYet": "Posición GPS aún no disponible.",
+  "unavailable": "no disponible",
+  "badPhoto": "Foto ilegible: {e}", "badFormat": "formato no compatible",
+  "noMissions": "Ninguna misión finalizada.",
+  "counts": "{a} alarma(s) · {i} indicio(s)",
+  "sentShort": "✓ enviado",
+  "map": "Mapa", "delete": "Eliminar",
+  "confirmDel": "¿Eliminar definitivamente esta misión y sus fotos?",
+  "reportFile": "Informe_Inspectra",
+  "generating": "Generando el informe…",
+  "generatingMap": "Generando el informe y el mapa base…",
+  "reportErr": "No se puede generar el informe: {e}",
+  "alreadySent": "✓ Ya enviado el {d}",
+  "shareTitle": "Informe Inspectra – {n}",
+  "shareText": "Informe de vigilancia Inspectra: {n} ({d})",
+  "confirmResend": "Este informe ya se envió el {d}. ¿Enviarlo de nuevo?",
+  "rTitle": "Informe de vigilancia Inspectra",
+  "maxConc": "Concentración máx.",
+  "rMission": "Misión", "rStart": "Inicio", "rEnd": "Fin",
+  "rMakerModel": "Fabricante / modelo", "rFwSw": "Firmware",
+  "rDetection": "Detección",
+  "detUser": "Concentración >= {v} (umbral introducido)",
+  "rGpsPts": "Puntos GPS",
+  "plan": "Plano del recorrido",
+  "noGps": "No se registró ninguna posición GPS durante la misión.",
+  "osmAttr": "© colaboradores de OpenStreetMap",
+  "north": "N",
+  "legTrack": "Recorrido", "legStart": "Salida", "legEnd": "Llegada", "legAlarm": "Alarma sin indicio",
+  "alarmsDetected": "Alarmas detectadas ({n})",
+  "noAlarms": "Ninguna superación de alarma durante la misión.",
+  "colN": "N.º", "colPos": "Posición GPS", "noPos": "posición no disponible",
+  "indicesTitle": "Indicios ({n})", "noIndices": "Ningún indicio registrado.",
+  "dateTime": "Fecha y hora", "at": "{d} a las {t}", "alarm": "Alarma",
+  "openMap": "{p} (± {a} m) – abrir mapa",
+  "generated": "Generado el {d} por Inspectra Web v{v}",
+  "page": "Página {i} / {n}",
+  "chartLive": "● En directo", "chartAll": "Todo",
+  "chartHint": "Toca la curva (o el recorrido en el mapa) para ver dónde se tomó una medición. El cursor bajo la curva permite retroceder.",
+  "cursorInfo": "{t} · {c} · {p}",
+  "posUnknown": "posición desconocida",
+  "noSamples": "No hay mediciones registradas para esta misión.",
+  "chartMission": "Misión: {n}"
+ },
+ "it": {
+  "state.idle": "Disconnesso", "state.searching": "Ricerca…", "state.connecting": "Connessione…",
+  "state.connected": "Connesso", "state.reconnecting": "Riconnessione…", "state.failed": "Errore", "state.demo": "Demo",
+  "docTitle": "Inspectra v{v} – Sorveglianza",
+  "versionOf": "Versione del {d}",
+  "concentration": "Concentrazione",
+  "measure": "Misura", "measLive": "in corso", "measWait": "in attesa",
+  "start": "Avvia sorveglianza",
+  "recording": "Sorveglianza",
+  "duration": "Durata", "distance": "Distanza", "alarms": "Allarmi", "indices": "Indizi", "indice": "Indizio",
+  "gpsWaiting": "GPS: in attesa…",
+  "stop": "Termina missione",
+  "mapShown": "Missione visualizzata:",
+  "backToMe": "Torna alla mia posizione",
+  "locate": "📍 Localizzami", "following": "📍 Inseguimento attivo", "recenter": "📍 Centra su di me",
+  "mapHint": "Tocca «Localizzami» per vedere la tua posizione.",
+  "max": "Max",
+  "battery": "Batteria", "batLevel": "liv. {n}",
+  "pump": "Pompa",
+  "pump.off": "Ferma", "pump.block": "Bloccata", "pump.s1": "Livello 1", "pump.s2": "Livello 2", "pump.err": "—",
+  "pumpStop": "Stop", "pumpL1": "Liv. 1", "pumpL2": "Liv. 2",
+  "pumpHint": "Comando inviato all’Inspectra connesso (S1B), poi lo stato viene riletto (G1B).",
+  "history": "Storico delle misure",
+  "connect": "Connetti",
+  "connectAll": "Inspectra non in elenco? Mostra tutti i dispositivi",
+  "disconnect": "Disconnetti",
+  "noDevice": "Nessun dispositivo connesso.",
+  "knownDevices": "Dispositivi già connessi",
+  "missions": "Missioni",
+  "log": "Registro",
+  "demo": "Modalità demo", "stopDemo": "Ferma demo",
+  "language": "Lingua", "langAuto": "Automatica (Android)",
+  "mode": "Misura", "modeAuto": "Automatica (U10)", "modePoll": "Interrogazione (G10)",
+  "newMission": "Nuova sorveglianza",
+  "missionName": "Nome della missione", "missionNamePh": "Via, settore, n. intervento…",
+  "operator": "Operatore", "operatorPh": "Nome dell’operatore",
+  "threshold": "Soglia di allarme", "thresholdPh": "es. 100",
+  "thresholdHelp": "Obbligatoria. Un superamento viene rilevato quando la concentrazione raggiunge questa soglia.",
+  "thrRequired": "Inserisci una soglia di allarme maggiore di 0.",
+  "cancel": "Annulla", "startOk": "Avvia",
+  "time": "Ora", "position": "Posizione", "useMyPos": "Usa la mia posizione attuale",
+  "note": "Annotazione", "notePh": "Descrizione, riferimento, tipo di manufatto…",
+  "photos": "Foto", "addPhoto": "📷 Aggiungi una foto", "saveIndice": "Salva indizio",
+  "pdfReport": "Rapporto PDF", "send": "Invia…", "resend": "Invia di nuovo", "download": "Scarica", "close": "Chiudi",
+  "needHttps": "Questa pagina deve essere servita in HTTPS per usare Bluetooth e GPS.",
+  "noBluetooth": "Web Bluetooth non disponibile. Usa Chrome, Edge o Samsung Internet su Android (non Firefox, non iPhone).",
+  "unnamed": "(senza nome)",
+  "noKnown": "Nessun dispositivo per ora.",
+  "lastConn": "Ultima connessione: {d}",
+  "connCount": "{n} connessione/i",
+  "forget": "Dimentica",
+  "timeout": "{w}: tempo scaduto",
+  "logSelCancel": "Selezione annullata: {e}",
+  "logKnown": "Dispositivo autorizzato trovato, connessione diretta.",
+  "logDevice": "Dispositivo: {n} [{id}]",
+  "logConnected": "Connesso ({l}), notifiche attive.",
+  "logNoUart": "Servizio seriale Inspectra (BGX / NINA) non trovato su questo dispositivo.",
+  "logFail": "Errore: {e}",
+  "logLost": "Connessione persa.",
+  "logRetry": "Nuovo tentativo tra {s} s…",
+  "logRx": "Ricevuto: {f}", "logTx": "Invio: {c}", "logTxErr": "Invio impossibile ({c}): {e}",
+  "logPoll": "Nessuna misura automatica: interrogazione con G10.",
+  "logAutoOk": "Invio automatico attivato (A80).",
+  "logSaveErr": "Salvataggio impossibile: {e}",
+  "logStarted": "Sorveglianza avviata: {n}",
+  "logAlarm": "Allarme n. {n}: {c}",
+  "logEnded": "Sorveglianza terminata.",
+  "logResumed": "Sorveglianza in corso ripresa.",
+  "logIndice": "Indizio n. {n} salvato.",
+  "logReportErr": "Errore rapporto: {e}",
+  "logSent": "Rapporto inviato: {n}",
+  "logShareErr": "Condivisione impossibile: {e}",
+  "logOsmNone": "Mappa di base OSM non disponibile per il PDF.",
+  "logOsm": "Mappa di base OSM: {e}",
+  "dev.Appareil": "Dispositivo", "dev.Liaison": "Modulo Bluetooth", "dev.Série": "N. di serie",
+  "dev.Fabricant": "Produttore", "dev.Modèle": "Modello", "dev.Firmware": "Firmware",
+  "thrNone": "Soglia: impostata all’avvio",
+  "thr": "Soglia {v}",
+  "exceeded": "SUPERATA",
+  "gpsNone": "GPS non disponibile in questo browser.",
+  "gpsSearching": "GPS: ricerca della posizione…",
+  "gpsPos": "GPS: {p} (± {a} m)",
+  "gpsDenied": "GPS negato: consenti la posizione per questo sito in Chrome.",
+  "gpsErr": "GPS: {e}",
+  "mapOff": "Mappa non disponibile: nessuna connessione internet al caricamento della pagina.",
+  "alarmN": "Allarme n. {n}", "indiceN": "Indizio n. {n}", "nShort": "n. {n}",
+  "startHintLive": "Registra il percorso GPS e i superamenti di allarme, poi genera un rapporto PDF.",
+  "startHintIdle": "Collega l’Inspectra per rilevare gli allarmi. Il percorso GPS viene registrato comunque.",
+  "missionDefault": "Missione del {d}",
+  "indiceAvail": "Indizio disponibile: {c}",
+  "indiceWait": "Indizio (in attesa di un superamento)",
+  "confirmStop": "Terminare la sorveglianza e generare il rapporto?",
+  "noPosYet": "Posizione GPS non ancora disponibile.",
+  "unavailable": "non disponibile",
+  "badPhoto": "Foto illeggibile: {e}", "badFormat": "formato non supportato",
+  "noMissions": "Nessuna missione terminata.",
+  "counts": "{a} allarme/i · {i} indizio/i",
+  "sentShort": "✓ inviato",
+  "map": "Mappa", "delete": "Elimina",
+  "confirmDel": "Eliminare definitivamente questa missione e le sue foto?",
+  "reportFile": "Rapporto_Inspectra",
+  "generating": "Generazione del rapporto…",
+  "generatingMap": "Generazione del rapporto e della mappa di base…",
+  "reportErr": "Impossibile generare il rapporto: {e}",
+  "alreadySent": "✓ Già inviato il {d}",
+  "shareTitle": "Rapporto Inspectra – {n}",
+  "shareText": "Rapporto di sorveglianza Inspectra: {n} ({d})",
+  "confirmResend": "Questo rapporto è già stato inviato il {d}. Inviarlo di nuovo?",
+  "rTitle": "Rapporto di sorveglianza Inspectra",
+  "maxConc": "Concentrazione max",
+  "rMission": "Missione", "rStart": "Inizio", "rEnd": "Fine",
+  "rMakerModel": "Produttore / modello", "rFwSw": "Firmware",
+  "rDetection": "Rilevamento",
+  "detUser": "Concentrazione >= {v} (soglia inserita)",
+  "rGpsPts": "Punti GPS",
+  "plan": "Mappa del percorso",
+  "noGps": "Nessuna posizione GPS registrata durante la missione.",
+  "osmAttr": "© contributori OpenStreetMap",
+  "north": "N",
+  "legTrack": "Percorso", "legStart": "Partenza", "legEnd": "Arrivo", "legAlarm": "Allarme senza indizio",
+  "alarmsDetected": "Allarmi rilevati ({n})",
+  "noAlarms": "Nessun superamento di allarme durante la missione.",
+  "colN": "N.", "colPos": "Posizione GPS", "noPos": "posizione non disponibile",
+  "indicesTitle": "Indizi ({n})", "noIndices": "Nessun indizio registrato.",
+  "dateTime": "Data e ora", "at": "{d} alle {t}", "alarm": "Allarme",
+  "openMap": "{p} (± {a} m) – apri mappa",
+  "generated": "Generato il {d} da Inspectra Web v{v}",
+  "page": "Pagina {i} / {n}",
+  "chartLive": "● Dal vivo", "chartAll": "Tutto",
+  "chartHint": "Tocca la curva (o il percorso sulla mappa) per vedere dove è stata presa una misura. Il cursore sotto la curva permette di tornare indietro.",
+  "cursorInfo": "{t} · {c} · {p}",
+  "posUnknown": "posizione sconosciuta",
+  "noSamples": "Nessuna misura registrata per questa missione.",
+  "chartMission": "Missione: {n}"
+ }
+};
+const LANG_NAMES = { fr: 'Français', en: 'English', de: 'Deutsch', es: 'Español', it: 'Italiano' };
+const DEFAULT_LOCALES = { fr: 'fr-FR', en: 'en-GB', de: 'de-DE', es: 'es-ES', it: 'it-IT' };
+const sysLangs = () => (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en']);
+const LANG = (() => {
+  const forced = store.get('insp_lang', '');
+  if (I18N[forced]) return forced;
+  for (const l of sysLangs()) { const c = String(l).slice(0, 2).toLowerCase(); if (I18N[c]) return c; }
+  return 'en';                                   // langue non prise en charge -> anglais
+})();
+const SEP = LANG === 'fr' ? ' : ' : ': ';
+const LOCALE = sysLangs().find(l => String(l).slice(0, 2).toLowerCase() === LANG) || DEFAULT_LOCALES[LANG];
+function t(key, v = {}) {
+  const s = I18N[LANG][key] ?? I18N.en[key] ?? I18N.fr[key] ?? key;
+  return s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
+}
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(e => e.textContent = t(e.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(e => e.placeholder = t(e.dataset.i18nPh));
+  document.querySelectorAll('[data-i18n-title]').forEach(e => e.title = t(e.dataset.i18nTitle));
+  const sel = $('langSel'), forced = store.get('insp_lang', '');
+  sel.innerHTML = `<option value="">${t('langAuto')}</option>` +
+    Object.entries(LANG_NAMES).map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
+  sel.value = I18N[forced] ? forced : '';
+  sel.onchange = () => { if (sel.value) store.set('insp_lang', sel.value); else store.del('insp_lang'); location.reload(); };
+  const ms = $('modeSel');
+  ms.innerHTML = `<option value="auto">${t('modeAuto')}</option><option value="poll">${t('modePoll')}</option>`;
+  ms.value = measMode;
+  ms.onchange = () => { measMode = ms.value; store.set('insp_mode', measMode); applyMode(); };
+}
+let measMode = store.get('insp_mode', 'auto') === 'poll' ? 'poll' : 'auto';
+applyI18n();
+
+/* =====================================================================
+   État BLE + état de l'Inspectra
+   ===================================================================== */
+let device = null, notifyChar = null, writeChar = null, uartName = '', devInfo = null;
+let userDisconnect = false, reconnectTimer = null, reconnectDelay = 1000;
+let rxBuffer = '', flushTimer = null, lastRawLog = 0;
+let lastFrame = 0, last = null, sessionMax = 0;
+let demoTimer = null, wakeLock = null, bleState = 'idle';
+let pollTimer = null, statusTimer = null, pollLogged = false;
+const insp = { serial: '', battery: null, pump: null };   // pump : 'off' | 'block' | 's1' | 's2'
+
+$('unit').textContent = UNIT;
+$('appVersion').textContent = 'v' + APP_VERSION;
+$('appVersion').title = t('versionOf', { d: APP_DATE });
+document.title = t('docTitle', { v: APP_VERSION });
+document.querySelectorAll('.u').forEach(e => e.textContent = UNIT);
+for (let i = 0; i < BAT_MAX; i++) $('batBars').appendChild(document.createElement('i'));
+
+const isBusy = () => bleState !== 'idle' && bleState !== 'failed';
+const isLive = () => bleState === 'connected' || bleState === 'demo';
+function setState(s) {
+  bleState = s;
+  const el = $('state');
+  el.className = 'pill ' + (s === 'demo' ? 'connected' : s);
+  el.textContent = t('state.' + s);
+  $('btnConnect').disabled = isBusy() || !navigator.bluetooth;
+  $('btnConnectAll').disabled = isBusy() || !navigator.bluetooth;
+  $('btnDisconnect').disabled = !isBusy();
+  $('btnDemo').textContent = t(s === 'demo' ? 'stopDemo' : 'demo');
+  $('btnDemo').disabled = isBusy() && s !== 'demo';
+  document.querySelectorAll('[data-dev]').forEach(b => b.disabled = isBusy() || !navigator.bluetooth);
+  document.querySelectorAll('[data-pump]').forEach(b => b.disabled = !isLive());
+  renderMission();
+}
+
+(function checkSupport() {
+  let msg = '';
+  if (!window.isSecureContext) msg = t('needHttps');
+  else if (!navigator.bluetooth) msg = t('noBluetooth');
+  if (msg) { $('support').textContent = msg; $('support').style.display = 'block'; }
+})();
+
+/* =====================================================================
+   Historique des appareils connectés
+   ===================================================================== */
+function rememberDevice(extra) {
+  if (!device) return;
+  const list = store.get('insp_devices', {});
+  const e = list[device.id] || { id: device.id, count: 0 };
+  e.name = device.name || e.name || t('unnamed');
+  if (extra) Object.assign(e, extra);
+  else { e.last = Date.now(); e.count = (e.count || 0) + 1; }
+  list[device.id] = e;
+  store.set('insp_devices', list);
+  renderDevices();
+}
+function renderDevices() {
+  const list = Object.values(store.get('insp_devices', {})).sort((a, b) => b.last - a.last);
+  const el = $('devList');
+  if (!list.length) { el.innerHTML = `<div class="empty">${t('noKnown')}</div>`; return; }
+  el.innerHTML = list.map(d => `
+    <div class="item">
+      <div class="grow">
+        <div class="t">${esc(d.name)}</div>
+        <div class="s">${d.serial ? `${esc(t('dev.Série'))} ${esc(d.serial)} · ` : ''}${t('lastConn', { d: fmtDate(d.last) })}${d.count ? ` · ${t('connCount', { n: d.count })}` : ''}</div>
+      </div>
+      <button class="small" data-dev="${esc(d.id)}">${t('connect')}</button>
+      <button class="x" data-forget="${esc(d.id)}" title="${t('forget')}">×</button>
+    </div>`).join('');
+  el.querySelectorAll('[data-dev]').forEach(b => {
+    b.disabled = isBusy() || !navigator.bluetooth;
+    b.onclick = () => connectKnown(store.get('insp_devices', {})[b.dataset.dev]);
+  });
+  el.querySelectorAll('[data-forget]').forEach(b => b.onclick = () => {
+    const l = store.get('insp_devices', {}); delete l[b.dataset.forget]; store.set('insp_devices', l); renderDevices();
+  });
+}
+
+/* =====================================================================
+   Connexion BLE (service BGX ou NINA, comme Inspectra_Ble_Connection)
+   ===================================================================== */
+const optionalServices = [...UARTS.map(u => u.svc), 'device_information'];
+
+async function requestDevice(opts) {
+  setState('searching');
+  try {
+    useDevice(await navigator.bluetooth.requestDevice({ ...opts, optionalServices }));
+  } catch (e) {
+    log(t('logSelCancel', { e: e.message }));
+    setState('idle');
+  }
+}
+
+async function connectKnown(entry) {
+  if (!entry) return;
+  if (navigator.bluetooth.getDevices) {
+    try {
+      const d = (await navigator.bluetooth.getDevices()).find(x => x.id === entry.id);
+      if (d) { log(t('logKnown')); useDevice(d); return; }
+    } catch {}
+  }
+  requestDevice({ filters: [{ name: entry.name }] });
+}
+
+function useDevice(d) {
+  device = d;
+  log(t('logDevice', { n: device.name || t('unnamed'), id: device.id }));
+  device.removeEventListener('gattserverdisconnected', onDisconnected);
+  device.addEventListener('gattserverdisconnected', onDisconnected);
+  userDisconnect = false;
+  reconnectDelay = 1000;
+  notifyChar = null;
+  insp.serial = ''; insp.battery = null; insp.pump = null;
+  connect();
+}
+
+const withTimeout = (p, ms, what) =>
+  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(t('timeout', { w: what }))), ms))]);
+
+async function connect() {
+  if (!device) return;
+  clearTimeout(reconnectTimer);
+  const first = !notifyChar;
+  setState(first ? 'connecting' : 'reconnecting');
+  try {
+    const server = await withTimeout(device.gatt.connect(), 15000, 'GATT');
+    let found = null;
+    for (const u of UARTS) {
+      try { found = { u, s: await withTimeout(server.getPrimaryService(u.svc), 6000, u.name) }; break; } catch {}
+    }
+    if (!found) throw new Error(t('logNoUart'));
+    const { u, s } = found;
+    const chars = {};
+    for (const id of new Set([u.rx, u.tx])) { try { chars[id] = await s.getCharacteristic(id); } catch {} }
+    // On choisit selon les propriétés réelles (notify / write), avec repli sur le choix du C#
+    const all = Object.values(chars);
+    const canNotify = c => c.properties.notify || c.properties.indicate;
+    const canWrite = c => c.properties.write || c.properties.writeWithoutResponse;
+    notifyChar = (chars[u.rx] && canNotify(chars[u.rx])) ? chars[u.rx] : all.find(canNotify) || chars[u.rx];
+    writeChar = (chars[u.tx] && canWrite(chars[u.tx])) ? chars[u.tx] : all.find(canWrite) || chars[u.tx];
+    if (!notifyChar || !writeChar) throw new Error(t('logNoUart'));
+    notifyChar.removeEventListener('characteristicvaluechanged', onNotify);
+    notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+    await notifyChar.startNotifications();
+    uartName = u.name;
+    log(t('logConnected', { l: uartName }));
+    rxBuffer = '';
+    reconnectDelay = 1000;
+    setState('connected');
+    rememberDevice();
+    keepAwake();
+    showInfo();
+    readDeviceInfo(server);
+    onLinkReady();
+  } catch (e) {
+    log(t('logFail', { e: e.message }));
+    try { device.gatt.disconnect(); } catch {}
+    stopTimers();
+    if (e.message === t('logNoUart')) { notifyChar = writeChar = null; setState('failed'); return; }  // pas un Inspectra : inutile de réessayer
+    if (!userDisconnect) scheduleReconnect(); else setState('failed');
+  }
+}
+
+function onDisconnected() {
+  log(t('logLost'));
+  stopTimers();
+  if (userDisconnect) { setState('idle'); return; }
+  scheduleReconnect();
+}
+function scheduleReconnect() {
+  setState('reconnecting');
+  clearTimeout(reconnectTimer);
+  log(t('logRetry', { s: reconnectDelay / 1000 }));
+  reconnectTimer = setTimeout(connect, reconnectDelay);
+  reconnectDelay = Math.min(reconnectDelay * 2, 15000);
+}
+async function disconnect() {
+  userDisconnect = true;
+  clearTimeout(reconnectTimer);
+  stopTimers();
+  if (demoTimer) return stopDemo();
+  try { if (notifyChar) await notifyChar.stopNotifications(); } catch {}
+  try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {}
+  notifyChar = writeChar = null;
+  if (!mission) releaseWake();
+  setState('idle');
+}
+
+async function readDeviceInfo(server) {
+  try {
+    const s = await server.getPrimaryService('device_information');
+    const map = { manufacturer_name_string: 'Fabricant', model_number_string: 'Modèle', firmware_revision_string: 'Firmware' };
+    const extra = {};
+    for (const [uuid, label] of Object.entries(map)) {
+      try { extra[label] = new TextDecoder().decode(await (await s.getCharacteristic(uuid)).readValue()).replace(/\0/g, '').trim(); } catch {}
+    }
+    Object.assign(bleExtra, extra);
+    showInfo();
+  } catch {}
+}
+const bleExtra = {};
+function showInfo() {
+  const info = { Appareil: device ? (device.name || t('unnamed')) : (demoTimer ? 'Inspectra (simulation)' : '—') };
+  if (uartName) info.Liaison = uartName;
+  if (insp.serial) info['Série'] = insp.serial;
+  Object.assign(info, bleExtra);
+  devInfo = info;
+  $('devinfo').innerHTML = Object.entries(info).filter(([, v]) => v).map(([k, v]) => `${esc(t('dev.' + k))}${SEP}<b>${esc(v)}</b>`).join('<br>');
+  if (mission && isLive()) { mission.device = { ...info }; scheduleSave(); }
+}
+
+/* =====================================================================
+   Envoi des commandes (StringToSend : texte ASCII + \r)
+   File d'attente : une seule écriture GATT à la fois.
+   ===================================================================== */
+let txChain = Promise.resolve(), txPending = 0;
+function send(cmd, quiet) {
+  if (demoTimer) { demoCommand(cmd); return; }
+  if (!writeChar || bleState !== 'connected') return;
+  if (txPending > 6) return;                       // la liaison ne suit pas : on n'empile pas
+  if (!quiet) log(t('logTx', { c: cmd }));
+  const data = new TextEncoder().encode(cmd + '\r');
+  const c = writeChar;
+  txPending++;
+  txChain = txChain.then(() => (c.properties.writeWithoutResponse && c.writeValueWithoutResponse && !c.properties.write
+      ? c.writeValueWithoutResponse(data) : c.writeValue(data)))
+    .catch(e => log(t('logTxErr', { c: cmd, e: e.message })))
+    .finally(() => txPending--);
+}
+
+// À la connexion : comme le C# (Send_Auto) -> pompe niveau 2 (S1B0101) puis envoi auto (U10)
+function onLinkReady() {
+  pollLogged = false;
+  lastFrame = 0;
+  if (PUMP_AT_CONNECT) send('S1B' + PUMP_AT_CONNECT);
+  applyMode();
+  send('G51'); send('G73'); send('G1B');
+  stopTimers();
+  statusTimer = setInterval(() => {
+    if (!isLive()) return;
+    if (!insp.serial) send('G51', true);
+    send('G73', true); send('G1B', true);
+  }, STATUS_MS);
+  pollTimer = setInterval(() => {
+    if (!isLive()) return;
+    const stale = Date.now() - lastFrame > MEAS_TIMEOUT_MS + 1000;
+    if (measMode === 'poll' || stale) {
+      if (measMode === 'auto' && stale && !pollLogged) { pollLogged = true; log(t('logPoll')); send('U10'); }
+      send('G10', true);
+    }
+  }, POLL_MS);
+}
+function applyMode() {
+  if (!isLive()) return;
+  send(measMode === 'auto' ? 'U10' : 'U90');
+}
+function stopTimers() { clearInterval(pollTimer); clearInterval(statusTimer); pollTimer = statusTimer = null; }
+
+/* =====================================================================
+   Réception et décodage (cf. Recieve_InspectraData / reception)
+   Trame : lettre (M auto, H réponse, I acquittement, A U..) + code hexa 2 car. + données hexa
+     M10 / H10 / H11 + 8 hexa : concentration × 0,1
+     H51 + 8 hexa : n° de série      H73 + 2(4) hexa : niveau batterie
+     H1B / I1B + 2 + 2 hexa : pompe (état, vitesse)    A80 : envoi auto activé
+   ===================================================================== */
+const DATA_LEN = { '10': 8, '11': 8, '14': 8, '15': 10, '17': 4, '1B': 4, '1C': 4, '1D': 4, '20': 2, '51': 8, '73': 4, '80': 0, '81': 0, '82': 0 };
+
+function onNotify(ev) {
+  const dv = ev.target.value;
+  feed(new TextDecoder('latin1').decode(dv.buffer.slice(dv.byteOffset, dv.byteOffset + dv.byteLength)));
+}
+function feed(txt) {
+  txt = txt.replace(/\0/g, '');
+  if (!txt) return;
+  rxBuffer += txt;
+  clearTimeout(flushTimer);
+  const parts = rxBuffer.split(/[\r\n]+/);
+  rxBuffer = parts.pop();
+  parts.forEach(parseLine);
+  if (rxBuffer.length > 200) rxBuffer = '';
+  // trame sans \r final : on la traite si elle a déjà sa longueur complète, sinon après 200 ms
+  if (rxBuffer && isComplete(rxBuffer)) { parseLine(rxBuffer); rxBuffer = ''; }
+  else if (rxBuffer) flushTimer = setTimeout(() => { if (rxBuffer) parseLine(rxBuffer); rxBuffer = ''; }, 200);
+}
+function isComplete(s) {
+  const m = /^[MHIAV]([0-9A-F]{2})/i.exec(s);
+  if (!m) return false;
+  const n = DATA_LEN[m[1].toUpperCase()];
+  return n !== undefined && m[1].toUpperCase() !== '73' && s.length >= 3 + n;
+}
+function parseLine(s) {
+  s = s.trim();
+  let guard = 0;
+  while (s.length >= 3 && guard++ < 10) {
+    const m = /^([MHIAV])([0-9A-F]{2})/i.exec(s);
+    if (!m) { if (s.length > 2) logRaw('? ' + s); return; }
+    const code = m[2].toUpperCase();
+    let n = DATA_LEN[code];
+    if (n === undefined) { handleFrame(m[1].toUpperCase(), code, s.slice(3), s); return; }
+    if (code === '73' && s.length < 7) n = 2;
+    let frame = s.slice(0, 3 + n);
+    const rest = s.slice(3 + n);
+    // plusieurs trames collées (cas vu sur le port série) : on découpe selon la longueur connue
+    if (rest && !/^[MHIAV][0-9A-F]{2}/i.test(rest)) { frame = s; s = ''; } else s = rest;
+    handleFrame(m[1].toUpperCase(), code, frame.slice(3), frame);
+  }
+}
+const isHex = v => /^[0-9A-F]+$/i.test(v);
+function logRaw(f) {
+  const now = Date.now();
+  if (now - lastRawLog > 5000) { lastRawLog = now; log(t('logRx', { f })); }
+}
+function handleFrame(type, code, data, raw) {
+  if ((code === '10' && (type === 'M' || type === 'H')) || (code === '11' && type === 'H')) {
+    const hex = data.slice(0, 8);
+    if (!isHex(hex)) return;
+    onConcentration(parseInt(hex, 16) / 10, raw);
+    return;
+  }
+  logRaw(raw);
+  if (code === '51' && type === 'H' && isHex(data.slice(0, 8))) {
+    insp.serial = String(parseInt(data.slice(0, 8), 16)).padStart(6, '0');
+    rememberDevice({ serial: insp.serial });
+    showInfo();
+  } else if (code === '73' && type === 'H' && isHex(data.slice(0, 2))) {
+    insp.battery = parseInt(data.slice(0, 2), 16);
+    renderStatus();
+  } else if (code === '1B' && (type === 'H' || type === 'I') && isHex(data.slice(0, 4))) {
+    const etat = parseInt(data.slice(0, 2), 16), vit = parseInt(data.slice(2, 4), 16);
+    insp.pump = etat === 0 ? (vit === 0 ? 'off' : 'block') : (vit === 0 ? 's1' : 's2');
+    renderStatus();
+  } else if (type === 'A' && code === '80') {
+    log(t('logAutoOk'));
+  }
+}
+function onConcentration(conc, raw) {
+  const f = { conc, t: Date.now() };
+  if (f.t - lastRawLog > 5000) logRaw(`${raw}  (${fmt(conc)} ${UNIT})`);
+  last = f;
+  lastFrame = f.t;
+  if (conc > sessionMax) sessionMax = conc;
+  recordSample(f);
+  render();
+  missionOnFrame(f);
+}
+
+/* =====================================================================
+   Affichage mesure, batterie, pompe
+   ===================================================================== */
+// Seuil : celui de la mission en cours, sinon le dernier saisi (pour l'affichage hors mission)
+function alarmThreshold() {
+  if (mission) return mission.threshold > 0 ? mission.threshold : null;
+  const v = parseFloat(store.get('insp_threshold', ''));
+  return v > 0 ? v : null;
+}
+function isAlarmFrame(f) {
+  const thr = alarmThreshold();
+  return f.conc > 0 && thr !== null && f.conc >= thr;
+}
+function render() {
+  if (!last) return;
+  const fresh = Date.now() - lastFrame <= MEAS_TIMEOUT_MS;
+  const alarm = isAlarmFrame(last);
+  const c = $('conc');
+  c.textContent = fmt(last.conc);
+  c.className = 'conc ' + (alarm ? 'alarm' : last.conc > 0 ? 'pos' : 'zero') + (fresh ? '' : ' idle');
+  $('mainCard').classList.toggle('alarm', alarm && fresh);
+  renderMax();
+}
+function renderMax() {
+  const mx = mission ? mission.maxConc : sessionMax;
+  $('max').innerHTML = last || mission ? `${fmt(mx)} <small>${UNIT}</small>` : '—';
+  const a = $('alarm'), thr = alarmThreshold(), alarm = !!(last && isAlarmFrame(last));
+  a.textContent = thr === null ? t('thrNone') : t('thr', { v: fmt(thr) }) + (alarm ? SEP + t('exceeded') : '');
+  a.className = 'alarmbadge' + (alarm ? ' on' : '');
+}
+function renderStatus() {
+  const b = insp.battery;
+  $('bat').innerHTML = b === null ? '—' : `${b} <small>/ ${BAT_MAX}</small>`;
+  const col = b === null ? 'var(--line)' : b <= 1 ? 'var(--bad)' : b <= 2 ? 'var(--warn)' : 'var(--ok)';
+  [...$('batBars').children].forEach((el, i) => { el.style.height = (40 + i * 15) + '%'; el.style.background = b !== null && i < b ? col : 'var(--line)'; });
+  $('pump').textContent = insp.pump ? t('pump.' + insp.pump) : '—';
+  const cur = { off: '0000', block: '', s1: '0100', s2: '0101' }[insp.pump] || '';
+  document.querySelectorAll('[data-pump]').forEach(bt => bt.classList.toggle('on', bt.dataset.pump === cur));
+}
+document.querySelectorAll('[data-pump]').forEach(bt => bt.onclick = () => {
+  send('S1B' + bt.dataset.pump);
+  setTimeout(() => send('G1B'), 400);
+});
+function tick() {
+  const live = isLive();
+  const fresh = live && last && Date.now() - lastFrame <= MEAS_TIMEOUT_MS;
+  const el = $('measState');
+  el.className = 'trigger' + (fresh ? ' on' : '');
+  el.innerHTML = esc(t('measure')) + SEP + '<b>' + (!live ? '—' : t(fresh ? 'measLive' : 'measWait')) + '</b>';
+  if (last) {
+    $('conc').classList.toggle('idle', !fresh);
+    $('mainCard').classList.toggle('alarm', !!(fresh && isAlarmFrame(last)));
+  }
+  if (mission) $('sDur').textContent = fmtDur(Date.now() - mission.start);
+  drawChart();
+}
+setInterval(tick, 250);
+
+/* =====================================================================
+   Historique des mesures : revue dans le temps + lien avec la carte
+   ===================================================================== */
+const liveSamples = [];                 // mesures de la session { t, v, lat, lon, acc }
+const LIVE_MAX = 80000;                 // ≈ 4 h à 5 mesures/s
+const GAP_MS = 3000;                    // trou dans la courbe si pas de mesure pendant 3 s
+const chart = { live: true, end: 0, span: 60000, sel: null, viewStart: 0, viewEnd: 0, minEnd: 0, maxEnd: 0 };
+
+function recordSample(f) {
+  const smp = { t: f.t, v: f.conc };
+  if (lastPos && f.t - lastPos.t < 15000) { smp.lat = lastPos.lat; smp.lon = lastPos.lon; smp.acc = lastPos.acc; }
+  liveSamples.push(smp);
+  if (liveSamples.length > LIVE_MAX) liveSamples.splice(0, liveSamples.length - LIVE_MAX);
+  if (mission) {                         // mission : 1 point par seconde (le plus fort)
+    const ms = mission.samples || (mission.samples = []), l = ms[ms.length - 1];
+    if (l && Math.floor(l.t / 1000) === Math.floor(smp.t / 1000)) { if (smp.v > l.v) Object.assign(l, smp); }
+    else ms.push({ ...smp });
+    scheduleSave();
+  }
+}
+const chartData = () => shownMission ? (shownMission.samples || []) : liveSamples;
+function lowerBound(a, tt) { let lo = 0, hi = a.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (a[mid].t < tt) lo = mid + 1; else hi = mid; } return lo; }
+function nearestSample(a, tt) {
+  if (!a.length) return null;
+  const i = lowerBound(a, tt);
+  if (i <= 0) return a[0];
+  if (i >= a.length) return a[a.length - 1];
+  return tt - a[i - 1].t <= a[i].t - tt ? a[i - 1] : a[i];
+}
+const fmtHM = tt => new Date(tt).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+function drawChart() {
+  const cv = $('chart'), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w) return;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const data = chartData(), now = Date.now();
+  const first = data.length ? data[0].t : now, lastT = data.length ? data[data.length - 1].t : now;
+  const span = chart.span || Math.max(10000, (lastT - first) * 1.02);
+  const maxEnd = shownMission ? lastT : Math.max(now, lastT);
+  const minEnd = Math.min(first + span, maxEnd);
+  let end = chart.live && !shownMission ? maxEnd : (chart.end || maxEnd);
+  end = Math.max(minEnd, Math.min(maxEnd, end));
+  const start = end - span;
+  Object.assign(chart, { viewStart: start, viewEnd: end, minEnd, maxEnd });
+  if (!chart.live || shownMission) chart.end = end;
+
+  const PH = h - 16;
+  const a = Math.max(0, lowerBound(data, start) - 1), b = Math.min(data.length, lowerBound(data, end) + 1);
+  let vmax = 10;
+  for (let i = a; i < b; i++) if (data[i].v > vmax) vmax = data[i].v;
+  const thrRef = shownMission ? shownMission.threshold : alarmThreshold();
+  const maxV = Math.max(vmax, thrRef && thrRef < vmax * 3 ? thrRef : 0) * 1.12;
+  const X = tt => (tt - start) / span * w, Y = v => PH - 2 - v / maxV * (PH - 16);
+
+  g.strokeStyle = '#334155'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(0, PH + 0.5); g.lineTo(w, PH + 0.5); g.stroke();
+  if (thrRef > 0 && thrRef < maxV) {
+    g.strokeStyle = 'rgba(239,68,68,.65)'; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(0, Y(thrRef)); g.lineTo(w, Y(thrRef)); g.stroke(); g.setLineDash([]);
+  }
+  g.fillStyle = '#94a3b8'; g.font = '11px system-ui';
+  g.textAlign = 'left'; g.fillText(fmt(Math.round(maxV)), 4, 12);
+  g.font = '10px system-ui';
+  g.fillText(fmtHM(start), 2, h - 3);
+  g.textAlign = 'right'; g.fillText(fmtHM(end), w - 2, h - 3);
+  g.textAlign = 'left';
+
+  if (b > a) {
+    g.strokeStyle = '#38bdf8'; g.lineWidth = 2; g.lineJoin = 'round'; g.beginPath();
+    let px = null, pv = 0, prevT = null, open = false;
+    const flush = () => { if (px === null) return; const y = Y(pv); if (open) g.lineTo(px, y); else { g.moveTo(px, y); open = true; } };
+    for (let i = a; i < b; i++) {
+      const p = data[i], x = Math.round(X(p.t));
+      if (prevT !== null && p.t - prevT > GAP_MS) { flush(); px = null; open = false; }
+      if (x !== px) { flush(); px = x; pv = p.v; } else if (p.v > pv) pv = p.v;
+      prevT = p.t;
+    }
+    flush();
+    g.stroke();
+  }
+
+  const sel = chart.sel;
+  if (sel && sel.t >= start && sel.t <= end) {
+    const x = X(sel.t), y = Y(sel.v);
+    g.strokeStyle = '#facc15'; g.lineWidth = 1; g.setLineDash([3, 3]);
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, PH); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#facc15'; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#0f172a'; g.lineWidth = 2; g.stroke();
+    const lbl = `${fmt(sel.v)} · ${fmtHM(sel.t)}`;
+    g.font = '600 12px system-ui';
+    const tw = g.measureText(lbl).width + 12, bx = Math.min(Math.max(x - tw / 2, 0), w - tw), by = 16;
+    g.fillStyle = 'rgba(15,23,42,.92)'; g.fillRect(bx, by, tw, 20);
+    g.fillStyle = '#facc15'; g.fillText(lbl, bx + 6, by + 14);
+  }
+
+  const sl = $('chartSlider');
+  if (document.activeElement !== sl) sl.value = maxEnd > minEnd ? Math.round((end - minEnd) / (maxEnd - minEnd) * 1000) : 1000;
+  sl.disabled = !(maxEnd > minEnd);
+  $('btnLive').classList.toggle('on', chart.live && !shownMission);
+  document.querySelectorAll('.zooms button').forEach(bt => bt.classList.toggle('on', +bt.dataset.span === chart.span));
+}
+
+function selectSample(smp, center) {
+  chart.sel = smp;
+  const info = $('chartInfo');
+  if (!smp) { info.textContent = t('chartHint'); mapClearCursor(); return; }
+  const pos = smp.lat !== undefined ? `${smp.lat.toFixed(6)}, ${smp.lon.toFixed(6)} (± ${smp.acc} m)` : t('posUnknown');
+  info.innerHTML = t('cursorInfo', { t: `<b>${fmtHM(smp.t)}</b>`, c: `<b>${fmt(smp.v)} ${esc(UNIT)}</b>`, p: esc(pos) });
+  mapShowCursor(smp, center);
+}
+function chartPick(ev) {
+  const r = $('chart').getBoundingClientRect();
+  const x = Math.max(0, Math.min(r.width, ev.clientX - r.left));
+  if (chart.live) { chart.live = false; chart.end = chart.viewEnd; }
+  selectSample(nearestSample(chartData(), chart.viewStart + x / r.width * (chart.viewEnd - chart.viewStart)), true);
+}
+(() => {
+  const cv = $('chart');
+  let down = false;
+  cv.addEventListener('pointerdown', e => { down = true; try { cv.setPointerCapture(e.pointerId); } catch {} chartPick(e); });
+  cv.addEventListener('pointermove', e => { if (down) chartPick(e); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => cv.addEventListener(n, () => down = false));
+  $('chartSlider').addEventListener('input', e => {
+    chart.live = false;
+    chart.end = chart.minEnd + e.target.value / 1000 * (chart.maxEnd - chart.minEnd);
+  });
+  document.querySelectorAll('.zooms button').forEach(bt => bt.onclick = () => {
+    const keepT = chart.sel ? chart.sel.t : null;
+    chart.span = +bt.dataset.span;
+    if (keepT && !chart.live) chart.end = keepT + (chart.span || 0) / 2;
+  });
+  $('btnLive').onclick = () => goLive();
+})();
+function goLive() {
+  chart.live = true; chart.end = 0;
+  if (!chart.span) chart.span = 60000;
+  selectSample(null);
+  if (shownMission) $('btnMapClose').onclick();
+}
+
+/* =====================================================================
+   Écran allumé + alertes
+   ===================================================================== */
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.onrelease = () => wakeLock = null; } } catch {}
+}
+function releaseWake() { try { wakeLock && wakeLock.release(); } catch {} wakeLock = null; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (isLive() || mission)) keepAwake();
+});
+let audioCtx = null;
+function unlockAudio() { try { audioCtx ||= new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {} }
+function alertUser() {
+  try { navigator.vibrate && navigator.vibrate([250, 120, 250]); } catch {}
+  try {
+    if (!audioCtx) return;
+    [0, 0.3].forEach(d => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 1400; g.gain.value = 0.25;
+      o.connect(g).connect(audioCtx.destination);
+      o.start(audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d + 0.18);
+    });
+  } catch {}
+}
+
+/* =====================================================================
+   Surveillance / mission
+   ===================================================================== */
+let mission = null, geoWatch = null, lastPos = null, saveTimer = null;
+
+function scheduleSave(now) {
+  const doSave = () => mission && db.put(mission).catch(e => log(t('logSaveErr', { e: e.message })));
+  if (now) { clearTimeout(saveTimer); saveTimer = null; doSave(); }
+  else if (!saveTimer) saveTimer = setTimeout(() => { saveTimer = null; doSave(); }, 2000);
+}
+
+$('btnStart').onclick = () => {
+  unlockAudio();
+  $('fName').value = '';
+  $('fOp').value = store.get('insp_operator', '');
+  $('fThr').value = store.get('insp_threshold', '');
+  $('fThr').classList.remove('err');
+  $('thrHelp').textContent = t('thresholdHelp'); $('thrHelp').className = 'hint';
+  openModal('dlgStart');
+};
+$('btnStartOk').onclick = () => {
+  const thr = parseFloat(String($('fThr').value).replace(',', '.'));
+  if (!(thr > 0)) {                       // seuil obligatoire pour l'Inspectra
+    $('fThr').classList.add('err');
+    $('thrHelp').textContent = t('thrRequired'); $('thrHelp').className = 'hint bad';
+    $('fThr').focus();
+    return;
+  }
+  store.set('insp_operator', $('fOp').value.trim());
+  store.set('insp_threshold', String(thr));
+  closeModal('dlgStart');
+  startMission($('fName').value.trim() || t('missionDefault', { d: fmtDate(Date.now()) }), $('fOp').value.trim(), thr);
+};
+
+function startMission(name, operator, threshold) {
+  mission = { id: 'M' + Date.now(), name, operator, threshold, unit: UNIT,
+    start: Date.now(), end: null, device: isLive() ? { ...devInfo } : null,
+    track: [], alarms: [], indices: [], maxConc: 0, samples: [] };
+  store.set('insp_active', mission.id);
+  shownMission = null;
+  follow = true;
+  log(t('logStarted', { n: name }));
+  startGeo();
+  keepAwake();
+  renderMission();
+  renderMax();
+  scheduleSave(true);
+}
+
+function startGeo() {
+  if (geoWatch !== null) return;
+  if (!navigator.geolocation) { gpsHint(t('gpsNone'), true); return; }
+  gpsHint(t('gpsSearching'));
+  geoWatch = navigator.geolocation.watchPosition(p => {
+    lastPos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: Math.round(p.coords.accuracy), t: Date.now() };
+    gpsHint(t('gpsPos', { p: fmtPos(lastPos), a: lastPos.acc }));
+    mapUpdateMe();
+    if (!mission) return;
+    const tr = mission.track, prev = tr[tr.length - 1];
+    if (lastPos.acc <= 50 && (!prev || hav(prev, lastPos) >= 5 || lastPos.t - prev.t >= 30000)) {
+      tr.push({ ...lastPos });
+      renderMission();
+      scheduleSave();
+    }
+  }, e => {
+    gpsHint(e.code === 1 ? t('gpsDenied') : t('gpsErr', { e: e.message }), true);
+    if (e.code === 1) { navigator.geolocation.clearWatch(geoWatch); geoWatch = null; }
+  }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 });
+  if (map) renderMapButtons();
+}
+function gpsHint(s, bad) {
+  ['gpsHint', 'mapHint'].forEach(id => { const h = $(id); h.textContent = s; h.className = 'hint' + (bad ? ' bad' : ''); });
+}
+
+/* =====================================================================
+   Carte OpenStreetMap (Leaflet)
+   ===================================================================== */
+let map = null, meMarker = null, meAcc = null, trackLine = null, layerAlarms = null, layerIndices = null;
+let follow = true, shownMission = null, mapKey = '', cursorMarker = null;
+
+function initMap() {
+  if (!window.L) {
+    $('map').innerHTML = `<div class="mapoff">${t('mapOff')}</div>`;
+    $('btnLocate').disabled = true;
+    $('btnLocate').textContent = t('locate');
+    return;
+  }
+  map = L.map('map', { zoomControl: true }).setView([46.6, 2.4], 5);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+  trackLine = L.polyline([], { color: '#0284c7', weight: 5, opacity: .9 }).addTo(map);
+  map.on('click', e => {
+    const data = chartData();
+    if (!data.length) return;
+    const cp = map.latLngToContainerPoint(e.latlng);
+    let best = null, bd = Infinity;
+    for (const p of data) {
+      if (p.lat === undefined) continue;
+      const q = map.latLngToContainerPoint([p.lat, p.lon]), dd = (q.x - cp.x) ** 2 + (q.y - cp.y) ** 2;
+      if (dd < bd || (dd === bd && best && p.t > best.t)) { bd = dd; best = p; }
+    }
+    if (!best || bd > 30 * 30) return;
+    if (chart.live) chart.live = false;
+    if (best.t < chart.viewStart || best.t > chart.viewEnd || !chart.end) chart.end = best.t + (chart.span || 0) / 2;
+    selectSample(best, false);
+  });
+  layerAlarms = L.layerGroup().addTo(map);
+  layerIndices = L.layerGroup().addTo(map);
+  map.on('dragstart', () => { follow = false; renderMapButtons(); });
+  renderMapButtons();
+}
+
+function mapUpdateMe() {
+  if (!map || !lastPos) return;
+  const ll = [lastPos.lat, lastPos.lon];
+  if (!meMarker) {
+    meAcc = L.circle(ll, { radius: lastPos.acc, color: '#38bdf8', weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
+    meMarker = L.circleMarker(ll, { radius: 8, color: '#fff', weight: 2.5, fillColor: '#2563eb', fillOpacity: 1 }).addTo(map);
+    if (follow && !shownMission) map.setView(ll, 18);
+  } else {
+    meMarker.setLatLng(ll);
+    meAcc.setLatLng(ll).setRadius(lastPos.acc);
+    if (follow && !shownMission) map.panTo(ll, { animate: true });
+  }
+}
+
+function mapRenderMission(force) {
+  if (!map) return;
+  const m = shownMission || mission;
+  const key = m ? `${m.id}-${m.track.length}-${m.alarms.length}-${m.indices.length}-${m.alarms.map(a => a.indice ? 1 : 0).join('')}` : '';
+  if (!force && key === mapKey) return;
+  mapKey = key;
+  trackLine.setLatLngs(m ? m.track.map(p => [p.lat, p.lon]) : []);
+  layerAlarms.clearLayers();
+  layerIndices.clearLayers();
+  if (!m) return;
+  const u = m.unit || UNIT;
+  m.alarms.filter(a => a.pos && !a.indice).forEach(a =>
+    L.circleMarker([a.pos.lat, a.pos.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#ea580c', fillOpacity: 1 })
+      .bindPopup(`<b>${t('alarmN', { n: a.n })}</b><br>${fmtTime(a.t)}<br><b style="color:#dc2626">${fmt(a.conc)} ${u}</b>`)
+      .addTo(layerAlarms));
+  m.indices.filter(i => i.pos).forEach(i =>
+    L.marker([i.pos.lat, i.pos.lon], { icon: L.divIcon({ className: 'pin', html: String(i.n), iconSize: [28, 28], iconAnchor: [14, 14] }) })
+      .bindPopup(`<b>${t('indiceN', { n: i.n })}</b> · ${fmtTime(i.t)}<br><b style="color:#dc2626">${fmt(i.conc)} ${u}</b>` +
+        (i.note ? `<br>${esc(i.note)}` : '') +
+        (i.photos.length ? `<br><img src="${i.photos[0].data}" style="width:170px;border-radius:6px;margin-top:6px">` : ''),
+        { maxWidth: 200 })
+      .addTo(layerIndices));
+}
+
+function mapShowCursor(smp, center) {
+  if (!map) return;
+  if (smp.lat === undefined) { mapClearCursor(); return; }
+  const ll = [smp.lat, smp.lon], tip = `${fmt(smp.v)} ${UNIT}<br>${fmtHM(smp.t)}`;
+  if (!cursorMarker) {
+    cursorMarker = L.circleMarker(ll, { radius: 10, color: '#0f172a', weight: 3, fillColor: '#facc15', fillOpacity: 1 })
+      .bindTooltip(tip, { permanent: true, direction: 'top', offset: [0, -10], className: 'curtip' }).addTo(map);
+  } else { cursorMarker.setLatLng(ll).setTooltipContent(tip); }
+  cursorMarker.bringToFront();
+  follow = false;
+  renderMapButtons();
+  if (center) {
+    if (!map.getBounds().pad(-0.15).contains(ll)) map.setView(ll, Math.max(map.getZoom(), 17));
+    renderMapButtons();
+  }
+}
+function mapClearCursor() { if (cursorMarker) { cursorMarker.remove(); cursorMarker = null; } }
+
+function fitMission(m) {
+  const pts = [...m.track, ...m.alarms.filter(a => a.pos).map(a => a.pos), ...m.indices.filter(i => i.pos).map(i => i.pos)];
+  if (pts.length) map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lon])).pad(0.15), { maxZoom: 18 });
+}
+
+async function showMissionOnMap(id) {
+  if (!map) return;
+  const m = await db.get(id);
+  if (!m) return;
+  shownMission = m;
+  follow = false;
+  chart.live = false; chart.span = 0; chart.end = 0; selectSample(null);
+  if (!(m.samples || []).length) $('chartInfo').textContent = t('noSamples');
+  mapRenderMission(true);
+  fitMission(m);
+  renderMapButtons();
+  $('mapCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderMapButtons() {
+  const b = $('btnLocate');
+  b.textContent = t(geoWatch === null ? 'locate' : follow ? 'following' : 'recenter');
+  b.classList.toggle('on', geoWatch !== null && follow && !shownMission);
+  $('mapShown').hidden = !shownMission;
+  if (shownMission) $('mapShownName').textContent = shownMission.name;
+  $('chartTitle').textContent = shownMission ? t('chartMission', { n: shownMission.name }) : t('history');
+}
+
+$('btnLocate').onclick = () => {
+  shownMission = null;
+  follow = true;
+  if (!chart.live || chart.sel) { chart.live = true; chart.end = 0; if (!chart.span) chart.span = 60000; selectSample(null); }
+  startGeo();
+  mapRenderMission(true);
+  if (lastPos && map) map.setView([lastPos.lat, lastPos.lon], Math.max(map.getZoom(), 17));
+  renderMapButtons();
+};
+$('btnMapClose').onclick = () => {
+  shownMission = null;
+  follow = true;
+  chart.live = true; chart.end = 0; if (!chart.span) chart.span = 60000; selectSample(null);
+  mapRenderMission(true);
+  if (lastPos && map) map.setView([lastPos.lat, lastPos.lon], 17);
+  renderMapButtons();
+};
+
+function missionOnFrame(f) {
+  if (!mission) return;
+  if (f.conc > mission.maxConc) mission.maxConc = f.conc;
+  if (!isAlarmFrame(f)) return;
+  const a = mission.alarms[mission.alarms.length - 1];
+  const rearm = a && a.indice && f.t - (a.indiceT || 0) > REARM_MS;
+  if (!a || f.t - a.lastT > ALARM_GAP_MS || rearm) {
+    mission.alarms.push({ n: mission.alarms.length + 1, t: f.t, lastT: f.t, conc: f.conc,
+      pos: lastPos ? { ...lastPos } : null, indice: null });
+    log(t('logAlarm', { n: mission.alarms.length, c: `${fmt(f.conc)} ${UNIT}` }));
+    alertUser();
+    scheduleSave(true);
+  } else {
+    a.lastT = f.t;
+    if (f.conc > a.conc) { a.conc = f.conc; if (lastPos) a.pos = { ...lastPos }; }
+    scheduleSave();
+  }
+  renderMission();
+}
+
+const pendingAlarm = () => {
+  const a = mission && mission.alarms[mission.alarms.length - 1];
+  return a && !a.indice ? a : null;
+};
+
+function renderMission() {
+  const on = !!mission;
+  $('missionIdle').hidden = on;
+  $('missionActive').hidden = !on;
+  $('startHint').textContent = isLive() ? t('startHintLive') : t('startHintIdle');
+  mapRenderMission();
+  if (!on) return;
+  $('mName').textContent = mission.name;
+  $('sDist').textContent = fmtDist(trackDist(mission.track));
+  $('sAlarms').textContent = mission.alarms.length;
+  $('sIndices').textContent = mission.indices.length;
+  const a = pendingAlarm(), b = $('btnIndice');
+  b.disabled = !a;
+  b.classList.toggle('pulse', !!a);
+  b.textContent = a ? t('indiceAvail', { c: `${fmt(a.conc)} ${UNIT}` }) : t('indiceWait');
+}
+
+$('btnStop').onclick = async () => {
+  if (!confirm(t('confirmStop'))) return;
+  mission.end = Date.now();
+  clearTimeout(saveTimer);
+  await db.put(mission);
+  store.del('insp_active');
+  const m = mission;
+  mission = null;
+  log(t('logEnded'));
+  if (!isLive()) releaseWake();
+  renderMission();
+  renderMax();
+  renderMissions();
+  if (map) { shownMission = m; follow = false; chart.live = false; chart.span = 0; chart.end = 0; selectSample(null); mapRenderMission(true); fitMission(m); renderMapButtons(); }
+  showReport(m);
+};
+
+async function resumeMission() {
+  const id = store.get('insp_active', null);
+  if (!id) return;
+  try {
+    const m = await db.get(id);
+    if (m && !m.end) { mission = m; liveSamples.push(...(m.samples || [])); log(t('logResumed')); startGeo(); keepAwake(); renderMission(); renderMax(); }
+    else store.del('insp_active');
+  } catch {}
+}
+
+/* =====================================================================
+   Indice : annotation, position, concentration, photos
+   ===================================================================== */
+let indiceDraft = null;
+
+$('btnIndice').onclick = () => {
+  const a = pendingAlarm();
+  if (!a) return;
+  indiceDraft = { alarm: a, pos: a.pos || (lastPos ? { ...lastPos } : null), photos: [] };
+  $('iTitle').textContent = t('indiceN', { n: mission.indices.length + 1 });
+  $('iTime').textContent = fmtTime(a.t);
+  $('iConc').textContent = `${fmt(a.conc)} ${UNIT}`;
+  $('iNote').value = '';
+  renderDraft();
+  openModal('dlgIndice');
+};
+$('btnPosNow').onclick = () => {
+  if (!lastPos) { alert(t('noPosYet')); return; }
+  indiceDraft.pos = { ...lastPos };
+  renderDraft();
+};
+function renderDraft() {
+  const p = indiceDraft.pos;
+  $('iPos').innerHTML = p ? `${fmtPos(p)}<br><span style="color:var(--mute);font-weight:400">± ${p.acc} m</span>` : t('unavailable');
+  $('iThumbs').innerHTML = indiceDraft.photos.map((ph, i) =>
+    `<div><img src="${ph.data}" alt=""><button data-rm="${i}">×</button></div>`).join('');
+  $('iThumbs').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { indiceDraft.photos.splice(+b.dataset.rm, 1); renderDraft(); });
+}
+$('iPhoto').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try { indiceDraft.photos.push(await fileToJpeg(file)); renderDraft(); }
+  catch (err) { alert(t('badPhoto', { e: err.message })); }
+};
+async function fileToJpeg(file, max = 1280) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error(t('badFormat'))); i.src = url; });
+    const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+    return { data: cv.toDataURL('image/jpeg', 0.8), w, h };
+  } finally { URL.revokeObjectURL(url); }
+}
+$('btnIndiceOk').onclick = () => {
+  const a = indiceDraft.alarm;
+  const ind = { n: mission.indices.length + 1, t: a.t, conc: a.conc, pos: indiceDraft.pos,
+    note: $('iNote').value.trim(), photos: indiceDraft.photos, alarm: a.n };
+  mission.indices.push(ind);
+  a.indice = ind.n;
+  a.indiceT = Date.now();
+  indiceDraft = null;
+  closeModal('dlgIndice');
+  log(t('logIndice', { n: ind.n }));
+  renderMission();
+  scheduleSave(true);
+};
+
+/* =====================================================================
+   Liste des missions
+   ===================================================================== */
+async function renderMissions() {
+  let list = [];
+  try { list = (await db.all()).filter(m => m.end).sort((a, b) => b.start - a.start); } catch {}
+  const el = $('missionList');
+  if (!list.length) { el.innerHTML = `<div class="empty">${t('noMissions')}</div>`; return; }
+  el.innerHTML = list.map(m => `
+    <div class="item">
+      <div class="grow">
+        <div class="t">${esc(m.name)}</div>
+        <div class="s">${fmtDate(m.start)} · ${fmtDur(m.end - m.start)} · ${t('counts', { a: m.alarms.length, i: m.indices.length })}${m.sentAt ? ` · <span style="color:var(--ok)">${t('sentShort')}</span>` : ''}</div>
+      </div>
+      <button class="small sec" data-map="${m.id}">${t('map')}</button>
+      <button class="small" data-pdf="${m.id}">PDF</button>
+      <button class="x" data-delm="${m.id}" title="${t('delete')}">×</button>
+    </div>`).join('');
+  el.querySelectorAll('[data-pdf]').forEach(b => b.onclick = async () => showReport(await db.get(b.dataset.pdf)));
+  el.querySelectorAll('[data-map]').forEach(b => { b.disabled = !map; b.onclick = () => showMissionOnMap(b.dataset.map); });
+  el.querySelectorAll('[data-delm]').forEach(b => b.onclick = async () => {
+    if (!confirm(t('confirmDel'))) return;
+    await db.del(b.dataset.delm); renderMissions();
+  });
+}
+
+/* =====================================================================
+   Rapport PDF : télécharger ou envoyer
+   ===================================================================== */
+let report = null;
+function reportName(m) {
+  const d = new Date(m.start), p = n => String(n).padStart(2, '0');
+  const slug = m.name.replace(/ß/g, 'ss').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  return `${t('reportFile')}_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}h${p(d.getMinutes())}${slug ? '_' + slug : ''}.pdf`;
+}
+async function showReport(m) {
+  report = null;
+  $('rInfo').innerHTML = `<b>${esc(m.name)}</b><br>${t(navigator.onLine !== false ? 'generatingMap' : 'generating')}`;
+  ['btnShare', 'btnDownload'].forEach(id => $(id).disabled = true);
+  $('btnResend').hidden = true;
+  openModal('dlgReport');
+  try {
+    const bytes = await buildReport(m);
+    report = { file: new File([bytes], reportName(m), { type: 'application/pdf' }), m };
+    $('rInfo').innerHTML = `<b>${esc(m.name)}</b><br>${fmtDate(m.start)} · ${t('counts', { a: m.alarms.length, i: m.indices.length })}<br>${Math.max(1, Math.round(bytes.length / 1024))} Ko`;
+    $('btnDownload').disabled = false;
+    renderShareState();
+  } catch (e) {
+    log(t('logReportErr', { e: e.message }));
+    $('rInfo').textContent = t('reportErr', { e: e.message });
+  }
+}
+$('btnDownload').onclick = () => {
+  const url = URL.createObjectURL(report.file);
+  const a = document.createElement('a');
+  a.href = url; a.download = report.file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+};
+const canShareFile = () => !!(navigator.canShare && navigator.canShare({ files: [report.file] }));
+function renderShareState() {
+  const m = report.m, b = $('btnShare'), r = $('btnResend');
+  if (m.sentAt) {
+    b.textContent = t('alreadySent', { d: fmtDate(m.sentAt) });
+    b.disabled = true;
+    r.hidden = !canShareFile();
+  } else {
+    b.textContent = t('send');
+    b.disabled = !canShareFile();
+    r.hidden = true;
+  }
+}
+async function shareReport() {
+  const m = report.m;
+  $('btnShare').disabled = true;
+  try {
+    await navigator.share({ files: [report.file], title: t('shareTitle', { n: m.name }),
+      text: t('shareText', { n: m.name, d: fmtDate(m.start) }) });
+    m.sentAt = Date.now();
+    m.sentCount = (m.sentCount || 0) + 1;
+    await db.put(m).catch(() => {});
+    log(t('logSent', { n: m.name }));
+    renderMissions();
+  } catch (e) { if (e.name !== 'AbortError') log(t('logShareErr', { e: e.message })); }
+  renderShareState();
+}
+$('btnShare').onclick = shareReport;
+$('btnResend').onclick = () => {
+  if (confirm(t('confirmResend', { d: fmtDate(report.m.sentAt) }))) shareReport();
+};
+
+/* ---------- Mini générateur PDF (texte, dessins, photos JPEG, liens) ---------- */
+const PDF = (() => {
+  const HR = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+  const HB = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+  const WIN = { 0x20AC:0x80, 0x201A:0x82, 0x201E:0x84, 0x2026:0x85, 0x2018:0x91, 0x2019:0x92, 0x201C:0x93, 0x201D:0x94,
+    0x2022:0x95, 0x2013:0x96, 0x2014:0x97, 0x0152:0x8C, 0x0153:0x9C, 0x202F:0x20, 0x00A0:0x20, 0x2009:0x20, 0x2265:0x3E };
+  const n = v => (Math.round(v * 100) / 100).toString();
+  const encChar = ch => { const c = ch.codePointAt(0); return c < 256 && c !== 0xA0 ? c : (WIN[c] ?? 0x3F); };
+  const enc = s => [...String(s)].map(ch => { const c = encChar(ch), t = String.fromCharCode(c); return c === 0x28 || c === 0x29 || c === 0x5C ? '\\' + t : t; }).join('');
+  const charW = (ch, bold) => {
+    let c = ch.codePointAt(0);
+    if (c === 0x202F || c === 0xA0 || c === 0x2009) c = 32;
+    if (c < 32 || c > 126) {
+      const base = ch.normalize('NFD').codePointAt(0);
+      if (base >= 32 && base <= 126) c = base;
+      else return { 0xB7: 278, 0xB0: 400, 0x2019: bold ? 278 : 222, 0x2014: 1000, 0x2013: 556, 0x2026: 1000 }[c] ?? 556;
+    }
+    return (bold ? HB : HR)[c - 32];
+  };
+  const width = (s, size, bold) => [...String(s)].reduce((w, ch) => w + charW(ch, bold), 0) * size / 1000;
+  const bin = s => { const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 0xFF; return b; };
+  const rgb = c => c.map(v => n(v / 255)).join(' ');
+
+  function create() {
+    const W = 595.28, H = 841.89, pages = [], images = [];
+    let cur = null;
+    return {
+      W, H, pages, width,
+      addPage() { cur = { ops: [], links: [] }; pages.push(cur); return cur; },
+      setPage(p) { cur = p; },
+      text(x, y, s, o = {}) {
+        const { size = 10, bold = false, color = [15, 23, 42] } = o;
+        cur.ops.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${rgb(color)} rg ${n(x)} ${n(H - y)} Td (${enc(s)}) Tj ET`);
+      },
+      rect(x, y, w, h, o = {}) {
+        const { fill, stroke, lw = 1 } = o;
+        cur.ops.push(`${fill ? rgb(fill) + ' rg ' : ''}${stroke ? rgb(stroke) + ' RG ' + n(lw) + ' w ' : ''}${n(x)} ${n(H - y - h)} ${n(w)} ${n(h)} re ${fill && stroke ? 'B' : fill ? 'f' : 'S'}`);
+      },
+      line(pts, color, lw = 1) {
+        if (pts.length < 2) return;
+        cur.ops.push(`${rgb(color)} RG ${n(lw)} w 1 J 1 j ` + pts.map((p, i) => `${n(p[0])} ${n(H - p[1])} ${i ? 'l' : 'm'}`).join(' ') + ' S');
+      },
+      poly(pts, fill) { cur.ops.push(`${rgb(fill)} rg ` + pts.map((p, i) => `${n(p[0])} ${n(H - p[1])} ${i ? 'l' : 'm'}`).join(' ') + ' h f'); },
+      circle(cx, cy, r, o = {}) {
+        const { fill, stroke, lw = 1 } = o, k = 0.5523 * r, y = H - cy;
+        cur.ops.push(`${fill ? rgb(fill) + ' rg ' : ''}${stroke ? rgb(stroke) + ' RG ' + n(lw) + ' w ' : ''}` +
+          `${n(cx + r)} ${n(y)} m ${n(cx + r)} ${n(y + k)} ${n(cx + k)} ${n(y + r)} ${n(cx)} ${n(y + r)} c ` +
+          `${n(cx - k)} ${n(y + r)} ${n(cx - r)} ${n(y + k)} ${n(cx - r)} ${n(y)} c ` +
+          `${n(cx - r)} ${n(y - k)} ${n(cx - k)} ${n(y - r)} ${n(cx)} ${n(y - r)} c ` +
+          `${n(cx + k)} ${n(y - r)} ${n(cx + r)} ${n(y - k)} ${n(cx + r)} ${n(y)} c ${fill && stroke ? 'B' : fill ? 'f' : 'S'}`);
+      },
+      jpeg(dataUrl, w, h) {
+        const im = { name: 'Im' + (images.length + 1), bytes: bin(atob(dataUrl.split(',')[1])), w, h };
+        images.push(im); return im;
+      },
+      image(im, x, y, w, h) { cur.ops.push(`q ${n(w)} 0 0 ${n(h)} ${n(x)} ${n(H - y - h)} cm /${im.name} Do Q`); },
+      link(x, y, w, h, url) { cur.links.push({ x, y, w, h, url }); },
+      build(title) {
+        const chunks = []; let len = 0; const offs = [];
+        const push = s => { const b = typeof s === 'string' ? bin(s) : s; chunks.push(b); len += b.length; };
+        let id = 5;
+        images.forEach(im => im.id = id++);
+        pages.forEach(p => { p.id = id++; p.cid = id++; p.ann = p.links.map(() => id++); });
+        const infoId = id, total = id;
+        const obj = (oid, parts) => { offs[oid] = len; push(`${oid} 0 obj\n`); [].concat(parts).forEach(push); push('\nendobj\n'); };
+        push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+        obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+        obj(2, `<< /Type /Pages /Kids [${pages.map(p => p.id + ' 0 R').join(' ')}] /Count ${pages.length} >>`);
+        obj(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+        obj(4, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+        images.forEach(im => obj(im.id, [`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.bytes.length} >>\nstream\n`, im.bytes, '\nendstream']));
+        const xo = images.length ? `/XObject << ${images.map(im => `/${im.name} ${im.id} 0 R`).join(' ')} >>` : '';
+        pages.forEach(p => {
+          obj(p.id, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${n(W)} ${n(H)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> ${xo} >> /Contents ${p.cid} 0 R${p.ann.length ? ` /Annots [${p.ann.map(a => a + ' 0 R').join(' ')}]` : ''} >>`);
+          const content = p.ops.join('\n');
+          obj(p.cid, [`<< /Length ${content.length} >>\nstream\n`, content, '\nendstream']);
+          p.links.forEach((l, i) => obj(p.ann[i], `<< /Type /Annot /Subtype /Link /Rect [${n(l.x)} ${n(H - l.y - l.h)} ${n(l.x + l.w)} ${n(H - l.y)}] /Border [0 0 0] /A << /S /URI /URI (${enc(l.url)}) >> >>`));
+        });
+        obj(infoId, `<< /Title (${enc(title.replace(/[–—]/g, '-').replace(/[’]/g, "'"))}) /Producer (Inspectra Web v${APP_VERSION}) >>`);
+        const xref = len;
+        let x = `xref\n0 ${total + 1}\n0000000000 65535 f \n`;
+        for (let i = 1; i <= total; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+        push(x);
+        push(`trailer\n<< /Size ${total + 1} /Root 1 0 R /Info ${infoId} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+        const out = new Uint8Array(len); let o = 0;
+        chunks.forEach(c => { out.set(c, o); o += c.length; });
+        return out;
+      }
+    };
+  }
+  return { create };
+})();
+
+/* ---------- Fond de carte OpenStreetMap pour le PDF ---------- */
+const mercX = lon => (lon + 180) / 360;
+const mercY = lat => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2; };
+
+async function renderBasemap(cx, cy, Sn, wPt, hPt) {
+  if (navigator.onLine === false) return null;
+  try {
+    const R = 2.5;
+    const W = Math.round(wPt * R), H = Math.round(hPt * R);
+    const pxPerUnit = Sn * R;
+    const z = Math.max(0, Math.min(19, Math.floor(Math.log2(pxPerUnit / 256))));
+    const n = 2 ** z, k = pxPerUnit / (256 * n);
+    const x0 = cx - W / 2 / pxPerUnit, y0 = cy - H / 2 / pxPerUnit;
+    const tx0 = Math.floor(x0 * n), ty0 = Math.floor(y0 * n);
+    const tx1 = Math.floor((x0 + W / pxPerUnit) * n), ty1 = Math.floor((y0 + H / pxPerUnit) * n);
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) > 60) return null;
+
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#e5e7eb'; g.fillRect(0, 0, W, H);
+    const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+    const jobs = [];
+    for (let tx = tx0; tx <= tx1; tx++) for (let ty = ty0; ty <= ty1; ty++) {
+      if (ty < 0 || ty >= n) continue;
+      const wx = ((tx % n) + n) % n;
+      jobs.push(Promise.race([
+        fetch(`https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`, { mode: 'cors' })
+          .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+          .then(b => createImageBitmap(b)),
+        timeout(8000)
+      ]).then(img => {
+        const size = 256 * k;
+        g.drawImage(img, Math.round((tx / n - x0) * pxPerUnit), Math.round((ty / n - y0) * pxPerUnit), Math.ceil(size), Math.ceil(size));
+        return true;
+      }).catch(() => false));
+    }
+    const ok = (await Promise.all(jobs)).filter(Boolean).length;
+    if (!ok) { log(t('logOsmNone')); return null; }
+    return { data: cv.toDataURL('image/jpeg', 0.85), w: W, h: H };
+  } catch (e) {
+    log(t('logOsm', { e: e.message }));
+    return null;
+  }
+}
+
+/* ---------- Contenu du rapport ---------- */
+async function buildReport(m, opts = {}) {
+  const d = PDF.create(), M = 40, PW = d.W - 2 * M;
+  const C = { ink: [15, 23, 42], mute: [100, 116, 139], line: [203, 213, 225], soft: [241, 245, 249],
+    navy: [15, 23, 42], blue: [2, 132, 199], red: [220, 38, 38], orange: [234, 88, 12], green: [22, 163, 74], white: [255, 255, 255] };
+  const unit = m.unit || UNIT;
+  let y = 0;
+
+  const newPage = () => {
+    d.addPage();
+    if (d.pages.length > 1) {
+      d.text(M, 28, t('rTitle'), { size: 8, bold: true, color: C.mute });
+      const nm = m.name.length > 70 ? m.name.slice(0, 67) + '…' : m.name;
+      d.text(d.W - M - d.width(nm, 8), 28, nm, { size: 8, color: C.mute });
+      d.line([[M, 34], [d.W - M, 34]], C.line, 0.5);
+      y = 52;
+    }
+  };
+  const ensure = h => { if (y + h > d.H - 50) newPage(); };
+  const wrap = (s, w, size, bold) => {
+    const out = [];
+    String(s).split('\n').forEach(par => {
+      let line = '';
+      par.split(/\s+/).forEach(word => {
+        const tt = line ? line + ' ' + word : word;
+        if (d.width(tt, size, bold) <= w) line = tt;
+        else {
+          if (line) out.push(line);
+          while (d.width(word, size, bold) > w) { let k = word.length; while (k > 1 && d.width(word.slice(0, k), size, bold) > w) k--; out.push(word.slice(0, k)); word = word.slice(k); }
+          line = word;
+        }
+      });
+      out.push(line);
+    });
+    return out;
+  };
+  const para = (s, o = {}) => {
+    const { size = 10, bold = false, color = C.ink, x = M, w = PW, lh = 1.4 } = o;
+    wrap(s, w, size, bold).forEach(l => { ensure(size * lh); d.text(x, y + size, l, { size, bold, color }); y += size * lh; });
+  };
+  const heading = s => { ensure(60); y += 14; d.text(M, y + 13, s, { size: 13, bold: true }); y += 20; d.line([[M, y], [d.W - M, y]], C.line, 0.8); y += 10; };
+
+  // ---- En-tête ----
+  newPage();
+  d.rect(0, 0, d.W, 96, { fill: C.navy });
+  d.text(M, 42, t('rTitle'), { size: 20, bold: true, color: C.white });
+  wrap(m.name, PW, 12, false).slice(0, 2).forEach((l, i) => d.text(M, 64 + i * 15, l, { size: 12, color: [203, 213, 225] }));
+  y = 116;
+
+  // ---- Synthèse ----
+  const track = m.track || [];
+  const dev = m.device || {};
+  const stats = [
+    [t('maxConc'), `${fmt(m.maxConc || 0)} ${unit}`, m.alarms.length ? C.red : C.ink],
+    [t('alarms'), String(m.alarms.length), m.alarms.length ? C.red : C.ink],
+    [t('indices'), String(m.indices.length), C.ink],
+    [t('distance'), fmtDist(trackDist(track)), C.ink]
+  ];
+  const bw = (PW - 30) / 4;
+  stats.forEach(([k, v, col], i) => {
+    const x = M + i * (bw + 10);
+    d.rect(x, y, bw, 52, { fill: C.soft });
+    d.text(x + 10, y + 18, k, { size: 8, color: C.mute });
+    d.text(x + 10, y + 40, v, { size: 14, bold: true, color: col });
+  });
+  y += 70;
+
+  const rows = [
+    [t('rMission'), m.name],
+    [t('operator'), m.operator || '—'],
+    [t('rStart'), fmtDate(m.start)],
+    [t('rEnd'), m.end ? fmtDate(m.end) : '—'],
+    [t('duration'), m.end ? fmtDurLong(m.end - m.start) : '—'],
+    [t('dev.Appareil'), dev.Appareil || '—'],
+    [t('dev.Série'), dev['Série'] || '—'],
+  ];
+  if (dev.Liaison) rows.push([t('dev.Liaison'), dev.Liaison]);
+  if (dev.Fabricant || dev['Modèle']) rows.push([t('rMakerModel'), [dev.Fabricant, dev['Modèle']].filter(Boolean).join(' / ')]);
+  if (dev.Firmware) rows.push([t('rFwSw'), dev.Firmware]);
+  rows.push([t('rDetection'), t('detUser', { v: `${fmt(m.threshold)} ${unit}` })]);
+  rows.push([t('rGpsPts'), String(track.length)]);
+  rows.forEach(([k, v], i) => {
+    const lines = wrap(v, PW - 150, 10, false);
+    const h = lines.length * 14 + 8;
+    ensure(h);
+    if (i % 2 === 0) d.rect(M, y, PW, h, { fill: C.soft });
+    d.text(M + 8, y + 15, k, { size: 9, color: C.mute });
+    lines.forEach((l, j) => d.text(M + 150, y + 15 + j * 14, l, { size: 10 }));
+    y += h;
+  });
+
+  // ---- Plan du parcours ----
+  heading(t('plan'));
+  const pts = [...track, ...m.alarms.filter(a => a.pos).map(a => a.pos), ...m.indices.filter(i => i.pos).map(i => i.pos)];
+  if (!pts.length) {
+    para(t('noGps'), { color: C.mute });
+  } else {
+    const BH = 300;
+    ensure(BH + 40);
+    const bx = M, by = y, bwid = PW, pad = 26;
+    const lat0 = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
+    const metersPerUnit = 40075016.686 * Math.cos(lat0 * Math.PI / 180);
+    const P = p => ({ x: mercX(p.lon), y: mercY(p.lat) });
+    const xy = pts.map(P);
+    const minX = Math.min(...xy.map(p => p.x)), maxX = Math.max(...xy.map(p => p.x));
+    const minY = Math.min(...xy.map(p => p.y)), maxY = Math.max(...xy.map(p => p.y));
+    const minExt = 40 / metersPerUnit;
+    const Sn = Math.min((bwid - 2 * pad) / Math.max(maxX - minX, minExt), (BH - 2 * pad) / Math.max(maxY - minY, minExt));
+    const S = Sn / metersPerUnit;
+    const cx0 = (minX + maxX) / 2, cy0 = (minY + maxY) / 2;
+    const toPage = p => { const q = P(p); return [bx + bwid / 2 + (q.x - cx0) * Sn, by + BH / 2 + (q.y - cy0) * Sn]; };
+
+    const base = opts.basemap !== false ? await renderBasemap(cx0, cy0, Sn, bwid, BH) : null;
+    if (base) {
+      d.image(d.jpeg(base.data, base.w, base.h), bx, by, bwid, BH);
+      d.rect(bx, by, bwid, BH, { stroke: C.line, lw: 0.8 });
+      const attr = t('osmAttr');
+      const aw = d.width(attr, 6.5);
+      d.rect(bx + bwid - aw - 8, by + BH - 11, aw + 8, 11, { fill: C.white });
+      d.text(bx + bwid - aw - 4, by + BH - 3, attr, { size: 6.5, color: C.mute });
+      d.link(bx + bwid - aw - 8, by + BH - 11, aw + 8, 11, 'https://www.openstreetmap.org/copyright');
+    } else {
+      d.rect(bx, by, bwid, BH, { fill: [248, 250, 252], stroke: C.line, lw: 0.8 });
+      for (let i = 1; i < 6; i++) d.line([[bx + bwid * i / 6, by], [bx + bwid * i / 6, by + BH]], [226, 232, 240], 0.4);
+      for (let i = 1; i < 5; i++) d.line([[bx, by + BH * i / 5], [bx + bwid, by + BH * i / 5]], [226, 232, 240], 0.4);
+    }
+
+    const tr = track.map(toPage);
+    if (tr.length > 1 && base) d.line(tr, C.white, 4.5);
+    if (tr.length > 1) d.line(tr, C.blue, 2.5);
+    if (tr.length) d.circle(tr[0][0], tr[0][1], 5, { fill: C.green, stroke: C.white, lw: 1.2 });
+    if (tr.length > 1) { const e = tr[tr.length - 1]; d.rect(e[0] - 4.5, e[1] - 4.5, 9, 9, { fill: C.navy, stroke: C.white, lw: 1.2 }); }
+    m.alarms.filter(a => a.pos && !a.indice).forEach(a => { const p = toPage(a.pos); d.circle(p[0], p[1], 4, { fill: C.orange, stroke: C.white, lw: 1 }); });
+    m.indices.filter(i => i.pos).forEach(i => {
+      const p = toPage(i.pos), lbl = String(i.n), w = d.width(lbl, 8, true);
+      d.circle(p[0], p[1], 8, { fill: C.red, stroke: C.white, lw: 1.5 });
+      d.text(p[0] - w / 2, p[1] + 3, lbl, { size: 8, bold: true, color: C.white });
+    });
+
+    const target = (bwid / 4) / S;
+    const nice = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000, 10000, 20000, 50000].reduce((a, b) => b <= target ? b : a, 1);
+    const L = nice * S, sx = bx + 14, sy = by + BH - 12, lbl = nice >= 1000 ? nice / 1000 + ' km' : nice + ' m';
+    d.rect(sx - 6, sy - 14, L + 18 + d.width(lbl, 8), 20, { fill: C.white });
+    d.line([[sx, sy - 4], [sx, sy], [sx + L, sy], [sx + L, sy - 4]], C.ink, 1);
+    d.text(sx + L + 6, sy, lbl, { size: 8 });
+    const nx = bx + bwid - 22, ny = by + 14;
+    d.poly([[nx, ny], [nx - 6, ny + 16], [nx, ny + 12], [nx + 6, ny + 16]], C.ink);
+    d.text(nx - d.width(t('north'), 8, true) / 2, ny + 28, t('north'), { size: 8, bold: true });
+    y = by + BH + 12;
+
+    let lx = M;
+    const leg = (draw, label) => { draw(lx + 5, y + 5); d.text(lx + 14, y + 8.5, label, { size: 8.5, color: C.mute }); lx += 26 + d.width(label, 8.5); };
+    leg((x, yy) => d.line([[x - 5, yy], [x + 5, yy]], C.blue, 2), t('legTrack'));
+    leg((x, yy) => d.circle(x, yy, 4, { fill: C.green }), t('legStart'));
+    leg((x, yy) => d.rect(x - 4, yy - 4, 8, 8, { fill: C.navy }), t('legEnd'));
+    leg((x, yy) => d.circle(x, yy, 4, { fill: C.orange }), t('legAlarm'));
+    leg((x, yy) => d.circle(x, yy, 5, { fill: C.red }), t('indice'));
+    y += 22;
+  }
+
+  // ---- Alarmes ----
+  heading(t('alarmsDetected', { n: m.alarms.length }));
+  if (!m.alarms.length) para(t('noAlarms'), { color: C.mute });
+  else {
+    const cols = [[M + 6, t('colN')], [M + 36, t('time')], [M + 100, t('concentration')], [M + 200, t('colPos')], [M + 450, t('indice')]];
+    const head = () => {
+      d.rect(M, y, PW, 20, { fill: C.soft });
+      cols.forEach(([x, s]) => d.text(x, y + 13.5, s, { size: 8.5, bold: true, color: C.mute }));
+      y += 20;
+    };
+    head();
+    m.alarms.forEach(a => {
+      if (y + 20 > d.H - 50) { newPage(); head(); }
+      d.text(cols[0][0], y + 13.5, String(a.n), { size: 9.5 });
+      d.text(cols[1][0], y + 13.5, fmtTime(a.t), { size: 9.5 });
+      d.text(cols[2][0], y + 13.5, `${fmt(a.conc)} ${unit}`, { size: 9.5, bold: true, color: C.red });
+      if (a.pos) {
+        const ps = `${fmtPos(a.pos)} (± ${a.pos.acc} m)`;
+        d.text(cols[3][0], y + 13.5, ps, { size: 9.5, color: C.blue });
+        d.link(cols[3][0], y + 3, d.width(ps, 9.5), 14, mapUrl(a.pos));
+      } else d.text(cols[3][0], y + 13.5, t('noPos'), { size: 9.5, color: C.mute });
+      d.text(cols[4][0], y + 13.5, a.indice ? t('nShort', { n: a.indice }) : '—', { size: 9.5 });
+      y += 20;
+      d.line([[M, y], [d.W - M, y]], C.line, 0.5);
+    });
+  }
+
+  // ---- Indices ----
+  heading(t('indicesTitle', { n: m.indices.length }));
+  if (!m.indices.length) para(t('noIndices'), { color: C.mute });
+  m.indices.forEach(ind => {
+    ensure(110);
+    d.rect(M, y, PW, 26, { fill: [254, 242, 242] });
+    d.circle(M + 16, y + 13, 9, { fill: C.red });
+    const nb = String(ind.n);
+    d.text(M + 16 - d.width(nb, 9, true) / 2, y + 16.2, nb, { size: 9, bold: true, color: C.white });
+    d.text(M + 32, y + 17, t('indiceN', { n: ind.n }), { size: 11.5, bold: true });
+    const right = `${fmt(ind.conc)} ${unit}`;
+    d.text(d.W - M - 10 - d.width(right, 11.5, true), y + 17, right, { size: 11.5, bold: true, color: C.red });
+    y += 34;
+    const kv = (k, v, link) => {
+      const lines = wrap(v, PW - 100, 10, false);
+      ensure(lines.length * 14 + 4);
+      d.text(M + 8, y + 10, k, { size: 9, color: C.mute });
+      lines.forEach((l, j) => {
+        d.text(M + 100, y + 10 + j * 14, l, { size: 10, color: link ? C.blue : C.ink });
+        if (link) d.link(M + 100, y + j * 14, d.width(l, 10), 13, link);
+      });
+      y += lines.length * 14 + 4;
+    };
+    kv(t('dateTime'), t('at', { d: new Date(ind.t).toLocaleDateString(LOCALE), t: fmtTime(ind.t) }));
+    kv(t('alarm'), t('nShort', { n: ind.alarm }));
+    if (ind.pos) kv(t('position'), t('openMap', { p: fmtPos(ind.pos), a: ind.pos.acc }), mapUrl(ind.pos));
+    else kv(t('position'), t('unavailable'));
+    kv(t('note'), ind.note || '—');
+    const pw = (PW - 12) / 2;
+    for (let i = 0; i < ind.photos.length; i += 2) {
+      const row = ind.photos.slice(i, i + 2).map(ph => {
+        let w = pw, h = pw * ph.h / ph.w;
+        if (h > 230) { h = 230; w = h * ph.w / ph.h; }
+        return { ph, w, h };
+      });
+      const rh = Math.max(...row.map(r => r.h));
+      y += 6;
+      ensure(rh + 8);
+      row.forEach((r, j) => {
+        const x = M + j * (pw + 12) + (pw - r.w) / 2;
+        d.image(d.jpeg(r.ph.data, r.ph.w, r.ph.h), x, y, r.w, r.h);
+        d.rect(x, y, r.w, r.h, { stroke: C.line, lw: 0.5 });
+      });
+      y += rh + 4;
+    }
+    y += 16;
+  });
+
+  // ---- Pieds de page ----
+  const gen = t('generated', { d: fmtDate(Date.now()), v: APP_VERSION });
+  d.pages.forEach((p, i) => {
+    d.setPage(p);
+    d.line([[M, d.H - 34], [d.W - M, d.H - 34]], C.line, 0.5);
+    d.text(M, d.H - 22, gen, { size: 7.5, color: C.mute });
+    const pg = t('page', { i: i + 1, n: d.pages.length });
+    d.text(d.W - M - d.width(pg, 7.5), d.H - 22, pg, { size: 7.5, color: C.mute });
+  });
+  return d.build(t('shareTitle', { n: m.name }));
+}
+
+/* =====================================================================
+   Démo (sans appareil) : simule un Inspectra qui répond aux commandes
+   ===================================================================== */
+const demo = { auto: false, tick: 0, pump: [1, 1], conc: 0 };
+const hex = (v, n) => Math.max(0, Math.round(v)).toString(16).toUpperCase().padStart(n, '0');
+function demoEmit(s) {                     // découpe en paquets de 20 octets comme sur Android
+  setTimeout(() => { for (let i = 0; i < s.length; i += 20) feed(s.slice(i, i + 20)); }, 30);
+}
+function demoCommand(cmd) {
+  if (cmd !== 'G10') log(t('logTx', { c: cmd }) + ' (démo)');
+  const p = demo.pump;
+  if (cmd === 'U10') { demo.auto = true; demoEmit('A80\r'); }
+  else if (cmd === 'U90') { demo.auto = false; demoEmit('A80\r'); }
+  else if (cmd === 'G10') demoEmit('H10' + hex(demo.conc * 10, 8) + '\r');
+  else if (cmd === 'G51') demoEmit('H51' + hex(123456, 8) + '\r');
+  else if (cmd === 'G73') demoEmit('H7304\r');
+  else if (cmd === 'G1B') demoEmit('H1B' + hex(p[0], 2) + hex(p[1], 2) + '\r');
+  else if (cmd.startsWith('S1B')) { demo.pump = [parseInt(cmd.slice(3, 5), 16), parseInt(cmd.slice(5, 7), 16)]; demoEmit('I1B' + cmd.slice(3, 7) + '\r'); }
+}
+function startDemo() {
+  setState('demo');
+  uartName = 'BGX (simulation)';
+  Object.assign(demo, { auto: false, tick: 0, pump: [1, 1] });
+  demoTimer = setInterval(() => {
+    const k = ++demo.tick;
+    const pumping = demo.pump[0] === 1;
+    demo.conc = !pumping ? 0 : Math.max(0, k % 80 > 25 && k % 80 < 45 ? 400 + 300 * Math.sin(k / 3) + Math.random() * 80 : Math.random() * 8);
+    if (demo.auto) {
+      const f = 'M10' + hex(demo.conc * 10, 8) + '\r';
+      if (k % 7 === 0) demoEmit(f + 'M10' + hex(demo.conc * 10, 8) + '\r');   // deux trames collées
+      else demoEmit(f);
+    }
+  }, 200);
+  showInfo();
+  onLinkReady();
+}
+function stopDemo() { clearInterval(demoTimer); demoTimer = null; stopTimers(); uartName = ''; setState('idle'); }
+
+/* =====================================================================
+   Boutons et démarrage
+   ===================================================================== */
+// (1) filtre sur les services série de l'Inspectra (BGX / NINA)
+$('btnConnect').onclick = () => requestDevice({ filters: UARTS.map(u => ({ services: [u.svc] })) });
+// Repli : si le module n'annonce pas son service dans la publicité Bluetooth
+$('btnConnectAll').onclick = () => requestDevice({ acceptAllDevices: true });
+$('btnDisconnect').onclick = disconnect;
+$('btnDemo').onclick = () => demoTimer ? stopDemo() : startDemo();
+setState('idle');
+renderStatus();
+renderMax();
+renderDevices();
+renderMissions();
+initMap();
+resumeMission();
+try { navigator.permissions.query({ name: 'geolocation' }).then(r => { if (r.state === 'granted') { startGeo(); renderMapButtons(); } }); } catch {}
+</script>
+</body>
+</html>
