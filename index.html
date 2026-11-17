@@ -232,6 +232,12 @@
     <p class="hint" data-i18n="pumpHint"></p>
   </section>
 
+  <!-- Indices et annotations de la mission affichée -->
+  <section class="card" id="itemsCard" hidden>
+    <h2 id="itemsTitle"></h2>
+    <div class="list" id="itemsList"></div>
+  </section>
+
   <!-- Connexion -->
   <div class="btns" style="margin-bottom:4px">
     <button id="btnConnect" data-i18n="connect"></button>
@@ -349,7 +355,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.3.0';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.4.0';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -432,6 +438,7 @@ const db = (() => {
    ===================================================================== */
 const I18N = {
  "fr": {
+  "resume": "Reprendre", "resumeBusy": "Termine d’abord la mission en cours.", "logResumedMission": "Mission reprise : {n}", "itemsTitle": "Indices et annotations",
   "annotation": "📝 Annotation", "annotShort": "Annot.", "annotN": "Annotation n°{n}",
   "saveAnnotation": "Enregistrer l’annotation", "logAnnot": "Annotation n°{n} enregistrée.",
   "annotationsTitle": "Annotations ({n})", "noAnnotations": "Aucune annotation enregistrée.",
@@ -581,6 +588,7 @@ const I18N = {
   "vc.minimize": "⤡ Réduire", "vc.open": "⛶ Concentration"
  },
  "en": {
+  "resume": "Resume", "resumeBusy": "Finish the current mission first.", "logResumedMission": "Mission resumed: {n}", "itemsTitle": "Leaks and annotations",
   "annotation": "📝 Annotation", "annotShort": "Notes", "annotN": "Annotation #{n}",
   "saveAnnotation": "Save annotation", "logAnnot": "Annotation #{n} saved.",
   "annotationsTitle": "Annotations ({n})", "noAnnotations": "No annotation recorded.",
@@ -730,6 +738,7 @@ const I18N = {
   "vc.minimize": "⤡ Minimise", "vc.open": "⛶ Concentration"
  },
  "de": {
+  "resume": "Fortsetzen", "resumeBusy": "Beende zuerst den laufenden Einsatz.", "logResumedMission": "Einsatz fortgesetzt: {n}", "itemsTitle": "Hinweise und Anmerkungen",
   "annotation": "📝 Anmerkung", "annotShort": "Notizen", "annotN": "Anmerkung Nr. {n}",
   "saveAnnotation": "Anmerkung speichern", "logAnnot": "Anmerkung Nr. {n} gespeichert.",
   "annotationsTitle": "Anmerkungen ({n})", "noAnnotations": "Keine Anmerkung gespeichert.",
@@ -871,6 +880,7 @@ const I18N = {
   "vc.minimize": "⤡ Verkleinern", "vc.open": "⛶ Konzentration"
  },
  "es": {
+  "resume": "Reanudar", "resumeBusy": "Finaliza primero la misión en curso.", "logResumedMission": "Misión reanudada: {n}", "itemsTitle": "Indicios y anotaciones",
   "annotation": "📝 Anotación", "annotShort": "Notas", "annotN": "Anotación n.º {n}",
   "saveAnnotation": "Guardar anotación", "logAnnot": "Anotación n.º {n} guardada.",
   "annotationsTitle": "Anotaciones ({n})", "noAnnotations": "Ninguna anotación registrada.",
@@ -1012,6 +1022,7 @@ const I18N = {
   "vc.minimize": "⤡ Reducir", "vc.open": "⛶ Concentración"
  },
  "it": {
+  "resume": "Riprendi", "resumeBusy": "Termina prima la missione in corso.", "logResumedMission": "Missione ripresa: {n}", "itemsTitle": "Indizi e annotazioni",
   "annotation": "📝 Annotazione", "annotShort": "Note", "annotN": "Annotazione n. {n}",
   "saveAnnotation": "Salva annotazione", "logAnnot": "Annotazione n. {n} salvata.",
   "annotationsTitle": "Annotazioni ({n})", "noAnnotations": "Nessuna annotazione registrata.",
@@ -1312,6 +1323,7 @@ async function connect() {
   const first = !notifyChar;
   setState(first ? 'connecting' : 'reconnecting');
   try {
+    startRssi();   // écoute les publicités avant la connexion : plus de chances d'obtenir un RSSI
     const server = await withTimeout(device.gatt.connect(), 15000, 'GATT');
     let found = null;
     for (const u of UARTS) {
@@ -1340,7 +1352,6 @@ async function connect() {
     keepAwake();
     showInfo();
     readDeviceInfo(server);
-    startRssi();
     onLinkReady();
   } catch (e) {
     log(t('logFail', { e: e.message }));
@@ -1410,7 +1421,7 @@ function fmtDistEst(d) {
 function renderDevInfo() {
   const info = devInfo || {};
   let html = Object.entries(info).filter(([, v]) => v).map(([k, v]) => `${esc(t('dev.' + k))}${SEP}<b>${esc(v)}</b>`).join('<br>');
-  if (insp.dist != null) html += (html ? '<br>' : '') + `${esc(t('dev.DistanceEst'))}${SEP}<b>${esc(fmtDistEst(insp.dist))}</b>`;
+  if (isLive()) html += (html ? '<br>' : '') + `${esc(t('dev.DistanceEst'))}${SEP}<b>${esc(insp.dist != null ? fmtDistEst(insp.dist) : t('unavailable'))}</b>`;
   $('devinfo').innerHTML = html || t('noDevice');
 }
 // RSSI via publicités Bluetooth -> distance (log-distance path loss). Beaucoup d'appareils
@@ -2014,6 +2025,7 @@ async function showMissionOnMap(id) {
   mapRenderMission(true);
   fitMission(m);
   renderMapButtons();
+  renderItems();
   $('mapCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -2032,6 +2044,7 @@ $('btnLocate').onclick = () => {
   if (!chart.live || chart.sel) { chart.live = true; chart.end = 0; if (!chart.span) chart.span = 60000; selectSample(null); }
   startGeo();
   mapRenderMission(true);
+  renderItems();
   if (lastPos && map) map.setView([lastPos.lat, lastPos.lon], Math.max(map.getZoom(), 17));
   renderMapButtons();
 };
@@ -2040,6 +2053,7 @@ $('btnMapClose').onclick = () => {
   follow = true;
   chart.live = true; chart.end = 0; if (!chart.span) chart.span = 60000; selectSample(null);
   mapRenderMission(true);
+  renderItems();
   if (lastPos && map) map.setView([lastPos.lat, lastPos.lon], 17);
   renderMapButtons();
 };
@@ -2069,12 +2083,45 @@ const pendingAlarm = () => {
   return a && !a.indice ? a : null;
 };
 
+let itemRefs = [];
+function renderItems() {
+  const m = shownMission || mission;
+  const card = $('itemsCard'), el = $('itemsList');
+  const inds = m ? m.indices : [], ans = m ? (m.annotations || []) : [];
+  if (!m || (!inds.length && !ans.length)) { card.hidden = true; el.innerHTML = ''; itemRefs = []; return; }
+  card.hidden = false;
+  $('itemsTitle').textContent = t('itemsTitle');
+  itemRefs = [...inds.map(o => ({ k: 'ind', o })), ...ans.map(o => ({ k: 'an', o }))];
+  el.innerHTML = itemRefs.map((r, i) => {
+    const isInd = r.k === 'ind', o = r.o;
+    const color = isInd ? 'var(--bad)' : '#2563eb';
+    const badge = isInd ? String(o.n) : 'A' + o.n;
+    const title = isInd ? t('indiceN', { n: o.n }) : t('annotN', { n: o.n });
+    const parts = [fmtTime(o.t)];
+    if (isInd) parts.push(`${fmt(o.conc)} ${UNIT}`);
+    if (o.note) parts.push(esc(o.note));
+    if (!o.pos) parts.push(t('noPos'));
+    return `<div class="item" data-foc="${i}">
+      <span style="flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:${color};color:#fff;font:700 11px/24px system-ui;text-align:center">${esc(badge)}</span>
+      <div class="grow"><div class="t">${esc(title)}</div><div class="s">${parts.join(' \u00b7 ')}</div></div>
+      ${o.photos && o.photos.length ? `<span class="s" style="flex:0 0 auto">\ud83d\udcf7 ${o.photos.length}</span>` : ''}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-foc]').forEach(b => b.onclick = () => {
+    const o = itemRefs[+b.dataset.foc].o;
+    if (!o.pos) { alert(t('unavailable')); return; }
+    if (map) { map.setView([o.pos.lat, o.pos.lon], Math.max(map.getZoom(), 18)); follow = false; renderMapButtons(); }
+    $('mapCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
 function renderMission() {
   const on = !!mission;
   $('missionIdle').hidden = on;
   $('missionActive').hidden = !on;
   $('startHint').textContent = isLive() ? t('startHintLive') : t('startHintIdle');
   mapRenderMission();
+  renderItems();
   if (!on) return;
   $('mName').textContent = mission.name;
   $('sDist').textContent = fmtDist(trackDist(mission.track));
@@ -2101,6 +2148,7 @@ $('btnStop').onclick = async () => {
   renderMax();
   renderMissions();
   if (map) { shownMission = m; follow = false; chart.live = false; chart.span = 0; chart.end = 0; selectSample(null); mapRenderMission(true); fitMission(m); renderMapButtons(); }
+  renderItems();
   showReport(m);
 };
 
@@ -2219,6 +2267,33 @@ $('btnAnnotOk').onclick = () => {
   scheduleSave(true);
 };
 
+// Reprendre une mission terminée : la rouvrir comme mission active
+async function resumeEndedMission(id) {
+  if (mission) { alert(t('resumeBusy')); return; }
+  const m = await db.get(id);
+  if (!m) return;
+  m.end = null;
+  if (!m.annotations) m.annotations = [];
+  mission = m;
+  store.set('insp_active', m.id);
+  await db.put(m);   // persiste end=null avant de régénérer l'historique
+  shownMission = null;
+  follow = true;
+  liveSamples.length = 0;
+  liveSamples.push(...(m.samples || []));
+  sessionMax = Math.max(sessionMax, m.maxConc || 0);
+  chart.live = true; chart.end = 0; if (!chart.span) chart.span = 60000; selectSample(null);
+  log(t('logResumedMission', { n: m.name }));
+  startGeo();
+  keepAwake();
+  renderMission();
+  renderMax();
+  mapRenderMission(true);
+  renderMapButtons();
+  renderMissions();
+  $('missionCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 /* =====================================================================
    Liste des missions
    ===================================================================== */
@@ -2236,9 +2311,11 @@ async function renderMissions() {
       </div>
       <button class="small sec" data-map="${m.id}">${t('map')}</button>
       <button class="small" data-pdf="${m.id}">PDF</button>
+      <button class="small go" data-resume="${m.id}">${t('resume')}</button>
       <button class="x" data-delm="${m.id}" title="${t('delete')}">×</button>
     </div>`).join('');
   el.querySelectorAll('[data-pdf]').forEach(b => b.onclick = async () => showReport(await db.get(b.dataset.pdf)));
+  el.querySelectorAll('[data-resume]').forEach(b => { b.disabled = !!mission; b.onclick = () => resumeEndedMission(b.dataset.resume); });
   el.querySelectorAll('[data-map]').forEach(b => { b.disabled = !map; b.onclick = () => showMissionOnMap(b.dataset.map); });
   el.querySelectorAll('[data-delm]').forEach(b => b.onclick = async () => {
     if (!confirm(t('confirmDel'))) return;
