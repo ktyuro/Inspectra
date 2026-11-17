@@ -328,9 +328,9 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.1.0';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.2.0';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
-const UNIT = 'ppm·m';              // unité affichée (valeur reçue × 0,1 comme dans le C#)
+const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
 const MEAS_TIMEOUT_MS = 2000;      // sans mesure depuis 2 s => « en attente »
 const POLL_MS = 500;               // interrogation G10 toutes les 0,5 s
@@ -1594,20 +1594,41 @@ function drawChart() {
 
   const PH = h - 16;
   const a = Math.max(0, lowerBound(data, start) - 1), b = Math.min(data.length, lowerBound(data, end) + 1);
-  let vmax = 10;
+  // Échelle adaptative : s'ajuste aux mesures visibles ET au seuil d'alarme (toujours visible),
+  // arrondie à un pas « rond » (1, 2, 5 × 10^n) avec des graduations
+  let vmax = 0;
   for (let i = a; i < b; i++) if (data[i].v > vmax) vmax = data[i].v;
   const thrRef = shownMission ? shownMission.threshold : alarmThreshold();
-  const maxV = Math.max(vmax, thrRef && thrRef < vmax * 3 ? thrRef : 0) * 1.12;
+  // seuil inclus dans l'échelle s'il n'écrase pas la courbe (mesures >= 1/5 du seuil) ; sinon il est signalé en haut
+  const thrIn = thrRef > 0 && vmax >= thrRef / 5;
+  const top = Math.max(vmax, thrIn ? thrRef : 0, 1) * 1.08;
+  const raw = top / 4, p10 = 10 ** Math.floor(Math.log10(raw)), f = raw / p10;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p10;
+  const maxV = Math.ceil(top / step) * step;
   const X = tt => (tt - start) / span * w, Y = v => PH - 2 - v / maxV * (PH - 16);
 
-  g.strokeStyle = '#334155'; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(0, PH + 0.5); g.lineTo(w, PH + 0.5); g.stroke();
-  if (thrRef > 0 && thrRef < maxV) {
-    g.strokeStyle = 'rgba(239,68,68,.65)'; g.setLineDash([4, 4]);
-    g.beginPath(); g.moveTo(0, Y(thrRef)); g.lineTo(w, Y(thrRef)); g.stroke(); g.setLineDash([]);
+  g.lineWidth = 1;
+  g.font = '10px system-ui'; g.textAlign = 'left'; g.fillStyle = '#94a3b8';
+  for (let v = step; v <= maxV + step / 1000; v += step) {          // graduations
+    const yy = Math.round(Y(v)) + 0.5;
+    g.strokeStyle = 'rgba(51,65,85,.55)';
+    g.beginPath(); g.moveTo(0, yy); g.lineTo(w, yy); g.stroke();
+    g.fillText(fmt(v), 3, yy - 3);
   }
-  g.fillStyle = '#94a3b8'; g.font = '11px system-ui';
-  g.textAlign = 'left'; g.fillText(fmt(Math.round(maxV)), 4, 12);
+  g.strokeStyle = '#334155';
+  g.beginPath(); g.moveTo(0, PH + 0.5); g.lineTo(w, PH + 0.5); g.stroke();
+  if (thrRef > 0) {                                                 // niveau d'alarme programmé
+    const yy = thrIn ? Y(thrRef) : 15;            // hors échelle : ligne en haut avec une flèche
+    g.strokeStyle = '#ef4444'; g.lineWidth = 1.5; g.setLineDash([6, 4]);
+    g.beginPath(); g.moveTo(0, yy); g.lineTo(w, yy); g.stroke(); g.setLineDash([]); g.lineWidth = 1;
+    const lbl = t('thr', { v: fmt(thrRef) }) + ' ' + UNIT + (thrIn ? '' : ' ↑');
+    g.font = '600 11px system-ui';
+    const tw = g.measureText(lbl).width + 8;
+    g.fillStyle = 'rgba(15,23,42,.85)'; g.fillRect(w - tw - 2, yy - 15, tw, 14);
+    g.fillStyle = '#f87171'; g.textAlign = 'right'; g.fillText(lbl, w - 6, yy - 4);
+    g.textAlign = 'left';
+  }
+  g.fillStyle = '#94a3b8';
   g.font = '10px system-ui';
   g.fillText(fmtHM(start), 2, h - 3);
   g.textAlign = 'right'; g.fillText(fmtHM(end), w - 2, h - 3);
@@ -1848,7 +1869,7 @@ function mapRenderMission(force) {
   layerAlarms.clearLayers();
   layerIndices.clearLayers();
   if (!m) return;
-  const u = m.unit || UNIT;
+  const u = UNIT;   // l'Inspectra mesure en ppm (les missions v1.0/1.1 avaient « ppm·m » par erreur)
   m.alarms.filter(a => a.pos && !a.indice).forEach(a =>
     L.circleMarker([a.pos.lat, a.pos.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#ea580c', fillOpacity: 1 })
       .bindPopup(`<b>${t('alarmN', { n: a.n })}</b><br>${fmtTime(a.t)}<br><b style="color:#dc2626">${fmt(a.conc)} ${u}</b>`)
@@ -2289,7 +2310,7 @@ async function buildReport(m, opts = {}) {
   const d = PDF.create(), M = 40, PW = d.W - 2 * M;
   const C = { ink: [15, 23, 42], mute: [100, 116, 139], line: [203, 213, 225], soft: [241, 245, 249],
     navy: [15, 23, 42], blue: [2, 132, 199], red: [220, 38, 38], orange: [234, 88, 12], green: [22, 163, 74], white: [255, 255, 255] };
-  const unit = m.unit || UNIT;
+  const unit = UNIT;   // ppm pour toutes les missions, y compris les anciennes
   let y = 0;
 
   const newPage = () => {
