@@ -388,7 +388,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.6.1';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.6.2';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -472,7 +472,7 @@ const db = (() => {
 const I18N = {
  "fr": {
   "vc.map": "🗺 Carte", "vc.conc": "⛶ Concentration",
-  "shutdown": "Éteindre", "confirmShutdown": "Éteindre l’Inspectra ? Il va se couper et se déconnecter.", "logShutdown": "Extinction de l’Inspectra (SFD).",
+  "shutdown": "Éteindre", "confirmShutdown": "Éteindre l’Inspectra ? Il va se couper et se déconnecter.", "logShutdown": "Extinction de l’Inspectra.",
   "resume": "Reprendre", "resumeBusy": "Termine d’abord la mission en cours.", "logResumedMission": "Mission reprise : {n}", "itemsTitle": "Indices et annotations",
   "annotation": "📝 Annotation", "annotShort": "Annot.", "annotN": "Annotation n°{n}",
   "saveAnnotation": "Enregistrer l’annotation", "logAnnot": "Annotation n°{n} enregistrée.",
@@ -502,7 +502,7 @@ const I18N = {
   "pump": "Pompe",
   "pump.off": "Arrêtée", "pump.block": "Bloquée", "pump.s1": "Niveau 1", "pump.s2": "Niveau 2", "pump.err": "—",
   "pumpStop": "Arrêt", "pumpL1": "Niv. 1", "pumpL2": "Niv. 2",
-  "pumpHint": "Commande envoyée à l’Inspectra connecté (S1B), état relu ensuite (G1B).",
+  "pumpHint": "Commande envoyée à l’Inspectra connecté ; l’état est relu ensuite.",
   "history": "Historique des mesures",
   "connect": "Connecter",
   "connectAll": "Inspectra absent de la liste ? Afficher tous les appareils",
@@ -514,8 +514,8 @@ const I18N = {
   "demo": "Mode démo", "stopDemo": "Arrêter la démo",
   "language": "Langue", "langAuto": "Automatique (Android)",
   "mode": "Mesure",
-  "modeAuto": "Automatique (U10)",
-  "modePoll": "Interrogation (G10)",
+  "modeAuto": "Automatique",
+  "modePoll": "Interrogation",
   "newMission": "Nouvelle surveillance",
   "missionName": "Nom de la mission", "missionNamePh": "Rue, secteur, n° d’intervention…",
   "operator": "Opérateur", "operatorPh": "Nom de l’opérateur",
@@ -544,11 +544,9 @@ const I18N = {
   "logFail": "Échec : {e}",
   "logLost": "Liaison perdue.",
   "logRetry": "Nouvelle tentative dans {s} s…",
-  "logRx": "Reçu : {f}",
-  "logTx": "Envoi : {c}",
-  "logTxErr": "Envoi impossible ({c}) : {e}",
-  "logPoll": "Pas de mesure automatique : interrogation G10.",
-  "logAutoOk": "Envoi automatique activé (A80).",
+  "logTxErr": "Envoi impossible : {e}",
+  "logPoll": "Pas de mesure automatique : passage en interrogation.",
+  "logAutoOk": "Envoi automatique activé.",
   "logSaveErr": "Sauvegarde impossible : {e}",
   "logStarted": "Surveillance démarrée : {n}",
   "logAlarm": "Alarme n°{n} : {c}",
@@ -624,7 +622,7 @@ const I18N = {
  },
  "en": {
   "vc.map": "🗺 Map", "vc.conc": "⛶ Concentration",
-  "shutdown": "Shut down", "confirmShutdown": "Turn off the Inspectra? It will power off and disconnect.", "logShutdown": "Shutdown command sent (SFD).",
+  "shutdown": "Shut down", "confirmShutdown": "Turn off the Inspectra? It will power off and disconnect.", "logShutdown": "Shutting down the Inspectra.",
   "resume": "Resume", "resumeBusy": "Finish the current mission first.", "logResumedMission": "Mission resumed: {n}", "itemsTitle": "Leaks and annotations",
   "annotation": "📝 Annotation", "annotShort": "Notes", "annotN": "Annotation #{n}",
   "saveAnnotation": "Save annotation", "logAnnot": "Annotation #{n} saved.",
@@ -654,7 +652,7 @@ const I18N = {
   "pump": "Pump",
   "pump.off": "Off", "pump.block": "Blocked", "pump.s1": "Level 1", "pump.s2": "Level 2", "pump.err": "—",
   "pumpStop": "Stop", "pumpL1": "Lvl 1", "pumpL2": "Lvl 2",
-  "pumpHint": "Command sent to the connected Inspectra (S1B), then the state is read back (G1B).",
+  "pumpHint": "Command sent to the connected Inspectra; the state is read back afterwards.",
   "history": "Measurement history",
   "connect": "Connect",
   "connectAll": "Inspectra not listed? Show all devices",
@@ -666,8 +664,8 @@ const I18N = {
   "demo": "Demo mode", "stopDemo": "Stop demo",
   "language": "Language", "langAuto": "Automatic (Android)",
   "mode": "Measurement",
-  "modeAuto": "Automatic (U10)",
-  "modePoll": "Polling (G10)",
+  "modeAuto": "Automatic",
+  "modePoll": "Polling",
   "newMission": "New monitoring",
   "missionName": "Mission name", "missionNamePh": "Street, area, job number…",
   "operator": "Operator", "operatorPh": "Operator name",
@@ -696,11 +694,9 @@ const I18N = {
   "logFail": "Failed: {e}",
   "logLost": "Connection lost.",
   "logRetry": "Retrying in {s} s…",
-  "logRx": "Received: {f}",
-  "logTx": "Sending: {c}",
-  "logTxErr": "Could not send ({c}): {e}",
-  "logPoll": "No automatic measurement: polling with G10.",
-  "logAutoOk": "Automatic sending enabled (A80).",
+  "logTxErr": "Could not send: {e}",
+  "logPoll": "No automatic measurement: switching to polling.",
+  "logAutoOk": "Automatic sending enabled.",
   "logSaveErr": "Could not save: {e}",
   "logStarted": "Monitoring started: {n}",
   "logAlarm": "Alarm #{n}: {c}",
@@ -776,7 +772,7 @@ const I18N = {
  },
  "de": {
   "vc.map": "🗺 Karte", "vc.conc": "⛶ Konzentration",
-  "shutdown": "Ausschalten", "confirmShutdown": "Inspectra ausschalten? Es schaltet sich aus und trennt die Verbindung.", "logShutdown": "Ausschaltbefehl gesendet (SFD).",
+  "shutdown": "Ausschalten", "confirmShutdown": "Inspectra ausschalten? Es schaltet sich aus und trennt die Verbindung.", "logShutdown": "Inspectra wird ausgeschaltet.",
   "resume": "Fortsetzen", "resumeBusy": "Beende zuerst den laufenden Einsatz.", "logResumedMission": "Einsatz fortgesetzt: {n}", "itemsTitle": "Hinweise und Anmerkungen",
   "annotation": "📝 Anmerkung", "annotShort": "Notizen", "annotN": "Anmerkung Nr. {n}",
   "saveAnnotation": "Anmerkung speichern", "logAnnot": "Anmerkung Nr. {n} gespeichert.",
@@ -803,7 +799,7 @@ const I18N = {
   "pump": "Pumpe",
   "pump.off": "Aus", "pump.block": "Blockiert", "pump.s1": "Stufe 1", "pump.s2": "Stufe 2", "pump.err": "—",
   "pumpStop": "Stopp", "pumpL1": "Stufe 1", "pumpL2": "Stufe 2",
-  "pumpHint": "Befehl an den verbundenen Inspectra (S1B), danach wird der Zustand gelesen (G1B).",
+  "pumpHint": "Befehl an den verbundenen Inspectra gesendet; danach wird der Zustand gelesen.",
   "history": "Messverlauf",
   "connect": "Verbinden",
   "connectAll": "Inspectra nicht in der Liste? Alle Geräte anzeigen",
@@ -814,7 +810,7 @@ const I18N = {
   "log": "Protokoll",
   "demo": "Demomodus", "stopDemo": "Demo beenden",
   "language": "Sprache", "langAuto": "Automatisch (Android)",
-  "mode": "Messung", "modeAuto": "Automatisch (U10)", "modePoll": "Abfrage (G10)",
+  "mode": "Messung", "modeAuto": "Automatisch", "modePoll": "Abfrage",
   "newMission": "Neue Überwachung",
   "missionName": "Name des Einsatzes", "missionNamePh": "Straße, Gebiet, Auftragsnummer…",
   "operator": "Bediener", "operatorPh": "Name des Bedieners",
@@ -842,9 +838,9 @@ const I18N = {
   "logFail": "Fehler: {e}",
   "logLost": "Verbindung verloren.",
   "logRetry": "Neuer Versuch in {s} s…",
-  "logRx": "Empfangen: {f}", "logTx": "Senden: {c}", "logTxErr": "Senden nicht möglich ({c}): {e}",
-  "logPoll": "Keine automatische Messung: Abfrage mit G10.",
-  "logAutoOk": "Automatisches Senden aktiviert (A80).",
+  "logTxErr": "Senden nicht möglich: {e}",
+  "logPoll": "Keine automatische Messung: Wechsel zur Abfrage.",
+  "logAutoOk": "Automatisches Senden aktiviert.",
   "logSaveErr": "Speichern nicht möglich: {e}",
   "logStarted": "Überwachung gestartet: {n}",
   "logAlarm": "Alarm Nr. {n}: {c}",
@@ -920,7 +916,7 @@ const I18N = {
  },
  "es": {
   "vc.map": "🗺 Mapa", "vc.conc": "⛶ Concentración",
-  "shutdown": "Apagar", "confirmShutdown": "¿Apagar el Inspectra? Se apagará y se desconectará.", "logShutdown": "Comando de apagado enviado (SFD).",
+  "shutdown": "Apagar", "confirmShutdown": "¿Apagar el Inspectra? Se apagará y se desconectará.", "logShutdown": "Apagando el Inspectra.",
   "resume": "Reanudar", "resumeBusy": "Finaliza primero la misión en curso.", "logResumedMission": "Misión reanudada: {n}", "itemsTitle": "Indicios y anotaciones",
   "annotation": "📝 Anotación", "annotShort": "Notas", "annotN": "Anotación n.º {n}",
   "saveAnnotation": "Guardar anotación", "logAnnot": "Anotación n.º {n} guardada.",
@@ -947,7 +943,7 @@ const I18N = {
   "pump": "Bomba",
   "pump.off": "Parada", "pump.block": "Bloqueada", "pump.s1": "Nivel 1", "pump.s2": "Nivel 2", "pump.err": "—",
   "pumpStop": "Parar", "pumpL1": "Niv. 1", "pumpL2": "Niv. 2",
-  "pumpHint": "Orden enviada al Inspectra conectado (S1B); después se lee el estado (G1B).",
+  "pumpHint": "Orden enviada al Inspectra conectado; después se vuelve a leer el estado.",
   "history": "Historial de mediciones",
   "connect": "Conectar",
   "connectAll": "¿No aparece el Inspectra? Mostrar todos los dispositivos",
@@ -958,7 +954,7 @@ const I18N = {
   "log": "Registro",
   "demo": "Modo demo", "stopDemo": "Detener demo",
   "language": "Idioma", "langAuto": "Automático (Android)",
-  "mode": "Medición", "modeAuto": "Automática (U10)", "modePoll": "Consulta (G10)",
+  "mode": "Medición", "modeAuto": "Automática", "modePoll": "Consulta",
   "newMission": "Nueva vigilancia",
   "missionName": "Nombre de la misión", "missionNamePh": "Calle, sector, n.º de intervención…",
   "operator": "Operador", "operatorPh": "Nombre del operador",
@@ -986,9 +982,9 @@ const I18N = {
   "logFail": "Error: {e}",
   "logLost": "Conexión perdida.",
   "logRetry": "Nuevo intento en {s} s…",
-  "logRx": "Recibido: {f}", "logTx": "Envío: {c}", "logTxErr": "No se pudo enviar ({c}): {e}",
-  "logPoll": "Sin medición automática: consulta con G10.",
-  "logAutoOk": "Envío automático activado (A80).",
+  "logTxErr": "No se pudo enviar: {e}",
+  "logPoll": "Sin medición automática: se pasa a consulta.",
+  "logAutoOk": "Envío automático activado.",
   "logSaveErr": "No se pudo guardar: {e}",
   "logStarted": "Vigilancia iniciada: {n}",
   "logAlarm": "Alarma n.º {n}: {c}",
@@ -1064,7 +1060,7 @@ const I18N = {
  },
  "it": {
   "vc.map": "🗺 Mappa", "vc.conc": "⛶ Concentrazione",
-  "shutdown": "Spegni", "confirmShutdown": "Spegnere l’Inspectra? Si spegnerà e si disconnetterà.", "logShutdown": "Comando di spegnimento inviato (SFD).",
+  "shutdown": "Spegni", "confirmShutdown": "Spegnere l’Inspectra? Si spegnerà e si disconnetterà.", "logShutdown": "Spegnimento dell’Inspectra.",
   "resume": "Riprendi", "resumeBusy": "Termina prima la missione in corso.", "logResumedMission": "Missione ripresa: {n}", "itemsTitle": "Indizi e annotazioni",
   "annotation": "📝 Annotazione", "annotShort": "Note", "annotN": "Annotazione n. {n}",
   "saveAnnotation": "Salva annotazione", "logAnnot": "Annotazione n. {n} salvata.",
@@ -1091,7 +1087,7 @@ const I18N = {
   "pump": "Pompa",
   "pump.off": "Ferma", "pump.block": "Bloccata", "pump.s1": "Livello 1", "pump.s2": "Livello 2", "pump.err": "—",
   "pumpStop": "Stop", "pumpL1": "Liv. 1", "pumpL2": "Liv. 2",
-  "pumpHint": "Comando inviato all’Inspectra connesso (S1B), poi lo stato viene riletto (G1B).",
+  "pumpHint": "Comando inviato all’Inspectra connesso; lo stato viene riletto.",
   "history": "Storico delle misure",
   "connect": "Connetti",
   "connectAll": "Inspectra non in elenco? Mostra tutti i dispositivi",
@@ -1102,7 +1098,7 @@ const I18N = {
   "log": "Registro",
   "demo": "Modalità demo", "stopDemo": "Ferma demo",
   "language": "Lingua", "langAuto": "Automatica (Android)",
-  "mode": "Misura", "modeAuto": "Automatica (U10)", "modePoll": "Interrogazione (G10)",
+  "mode": "Misura", "modeAuto": "Automatica", "modePoll": "Interrogazione",
   "newMission": "Nuova sorveglianza",
   "missionName": "Nome della missione", "missionNamePh": "Via, settore, n. intervento…",
   "operator": "Operatore", "operatorPh": "Nome dell’operatore",
@@ -1130,9 +1126,9 @@ const I18N = {
   "logFail": "Errore: {e}",
   "logLost": "Connessione persa.",
   "logRetry": "Nuovo tentativo tra {s} s…",
-  "logRx": "Ricevuto: {f}", "logTx": "Invio: {c}", "logTxErr": "Invio impossibile ({c}): {e}",
-  "logPoll": "Nessuna misura automatica: interrogazione con G10.",
-  "logAutoOk": "Invio automatico attivato (A80).",
+  "logTxErr": "Invio impossibile: {e}",
+  "logPoll": "Nessuna misura automatica: passaggio all’interrogazione.",
+  "logAutoOk": "Invio automatico attivato.",
   "logSaveErr": "Salvataggio impossibile: {e}",
   "logStarted": "Sorveglianza avviata: {n}",
   "logAlarm": "Allarme n. {n}: {c}",
@@ -1549,7 +1545,6 @@ function send(cmd, quiet) {
   if (demoTimer) { demoCommand(cmd); return; }
   if (!writeChar || bleState !== 'connected') return;
   if (txPending > 6) return;                       // la liaison ne suit pas : on n'empile pas
-  if (!quiet) log(t('logTx', { c: cmd }));
   const data = new TextEncoder().encode(cmd + '\r');
   const c = writeChar;
   txPending++;
@@ -1637,10 +1632,7 @@ function parseLine(s) {
   }
 }
 const isHex = v => /^[0-9A-F]+$/i.test(v);
-function logRaw(f) {
-  const now = Date.now();
-  if (now - lastRawLog > 5000) { lastRawLog = now; log(t('logRx', { f })); }
-}
+function logRaw() { /* trames de protocole : non affichées dans le journal */ }
 function handleFrame(type, code, data, raw) {
   if ((code === '10' && (type === 'M' || type === 'H')) || (code === '11' && type === 'H')) {
     const hex = data.slice(0, 8);
@@ -2927,7 +2919,6 @@ function demoEmit(s) {                     // découpe en paquets de 20 octets c
   setTimeout(() => { for (let i = 0; i < s.length; i += 20) feed(s.slice(i, i + 20)); }, 30);
 }
 function demoCommand(cmd) {
-  if (cmd !== 'G10') log(t('logTx', { c: cmd }) + ' (démo)');
   const p = demo.pump;
   if (cmd === 'U10') { demo.auto = true; demoEmit('A80\r'); }
   else if (cmd === 'U90') { demo.auto = false; demoEmit('A80\r'); }
