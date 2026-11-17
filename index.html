@@ -388,7 +388,7 @@ const UARTS = [
   { name: 'NINA', svc: '2456e1b9-26e2-8f83-e744-f34f01e9d701',
     rx: '2456e1b9-26e2-8f83-e744-f34f01e9d703', tx: '2456e1b9-26e2-8f83-e744-f34f01e9d703' }
 ];
-const APP_VERSION = '1.6.2';       // à incrémenter à chaque mise en ligne
+const APP_VERSION = '1.7.1';       // à incrémenter à chaque mise en ligne
 const APP_DATE = '17/11/2026';
 const UNIT = 'ppm';                // unité de l'Inspectra (valeur reçue × 0,1 comme dans le C#)
 const PUMP_AT_CONNECT = '0101';    // comme le C# (Send_Auto) : pompe niveau 2 à la connexion ; '' = ne rien envoyer
@@ -400,6 +400,14 @@ const REARM_MS = 5000;             // après un indice, une alarme toujours acti
 const BAT_MAX = 5;                 // nombre de barres de batterie (niveau G73 supposé 0..5)
 const RSSI_TX = -59;               // puissance Bluetooth mesurée à 1 m (dBm) — estimation de distance
 const RSSI_N = 2.5;                // facteur d'atténuation (2 = champ libre, 3+ = intérieur encombré)
+
+// --- Centralisation des résultats (Supabase) ---
+// Laisser SYNC_URL / SYNC_KEY vides = fonction désactivée (rien n'est envoyé).
+// Pour activer : coller l'URL du projet et la clé « anon public » de Supabase.
+const SYNC_URL = 'https://ousctjstfswjuvqzbmol.supabase.co';               // ex. 'https://abcdxyz.supabase.co'
+const SYNC_KEY = 'sb_publishable_l5-CMHtphJFj0_i0HBOaaA_w5caEcOC';               // clé anon public (publique : ne mettre qu'une politique « insertion seule »)
+const SYNC_TABLE = 'missions';     // nom de la table dans Supabase
+const SYNC_PHOTOS = true;         // true = envoyer aussi les photos (uploads plus lourds sur le terrain)
 
 /* =====================================================================
    Outils
@@ -471,6 +479,7 @@ const db = (() => {
    ===================================================================== */
 const I18N = {
  "fr": {
+  "logSyncOk": "Résultats centralisés : {n}", "logSyncErr": "Centralisation impossible : {e}", "syncedShort": "☁︎ centralisé",
   "vc.map": "🗺 Carte", "vc.conc": "⛶ Concentration",
   "shutdown": "Éteindre", "confirmShutdown": "Éteindre l’Inspectra ? Il va se couper et se déconnecter.", "logShutdown": "Extinction de l’Inspectra.",
   "resume": "Reprendre", "resumeBusy": "Termine d’abord la mission en cours.", "logResumedMission": "Mission reprise : {n}", "itemsTitle": "Indices et annotations",
@@ -621,6 +630,7 @@ const I18N = {
   "vc.minimize": "⤡ Réduire", "vc.open": "⛶ Concentration"
  },
  "en": {
+  "logSyncOk": "Results uploaded: {n}", "logSyncErr": "Upload failed: {e}", "syncedShort": "☁︎ uploaded",
   "vc.map": "🗺 Map", "vc.conc": "⛶ Concentration",
   "shutdown": "Shut down", "confirmShutdown": "Turn off the Inspectra? It will power off and disconnect.", "logShutdown": "Shutting down the Inspectra.",
   "resume": "Resume", "resumeBusy": "Finish the current mission first.", "logResumedMission": "Mission resumed: {n}", "itemsTitle": "Leaks and annotations",
@@ -771,6 +781,7 @@ const I18N = {
   "vc.minimize": "⤡ Minimise", "vc.open": "⛶ Concentration"
  },
  "de": {
+  "logSyncOk": "Ergebnisse übertragen: {n}", "logSyncErr": "Übertragung fehlgeschlagen: {e}", "syncedShort": "☁︎ übertragen",
   "vc.map": "🗺 Karte", "vc.conc": "⛶ Konzentration",
   "shutdown": "Ausschalten", "confirmShutdown": "Inspectra ausschalten? Es schaltet sich aus und trennt die Verbindung.", "logShutdown": "Inspectra wird ausgeschaltet.",
   "resume": "Fortsetzen", "resumeBusy": "Beende zuerst den laufenden Einsatz.", "logResumedMission": "Einsatz fortgesetzt: {n}", "itemsTitle": "Hinweise und Anmerkungen",
@@ -915,6 +926,7 @@ const I18N = {
   "vc.minimize": "⤡ Verkleinern", "vc.open": "⛶ Konzentration"
  },
  "es": {
+  "logSyncOk": "Resultados centralizados: {n}", "logSyncErr": "Error al centralizar: {e}", "syncedShort": "☁︎ centralizado",
   "vc.map": "🗺 Mapa", "vc.conc": "⛶ Concentración",
   "shutdown": "Apagar", "confirmShutdown": "¿Apagar el Inspectra? Se apagará y se desconectará.", "logShutdown": "Apagando el Inspectra.",
   "resume": "Reanudar", "resumeBusy": "Finaliza primero la misión en curso.", "logResumedMission": "Misión reanudada: {n}", "itemsTitle": "Indicios y anotaciones",
@@ -1059,6 +1071,7 @@ const I18N = {
   "vc.minimize": "⤡ Reducir", "vc.open": "⛶ Concentración"
  },
  "it": {
+  "logSyncOk": "Risultati centralizzati: {n}", "logSyncErr": "Centralizzazione non riuscita: {e}", "syncedShort": "☁︎ centralizzato",
   "vc.map": "🗺 Mappa", "vc.conc": "⛶ Concentrazione",
   "shutdown": "Spegni", "confirmShutdown": "Spegnere l’Inspectra? Si spegnerà e si disconnetterà.", "logShutdown": "Spegnimento dell’Inspectra.",
   "resume": "Riprendi", "resumeBusy": "Termina prima la missione in corso.", "logResumedMission": "Missione ripresa: {n}", "itemsTitle": "Indizi e annotazioni",
@@ -2232,6 +2245,7 @@ $('btnStop').onclick = async () => {
   renderMission();
   renderMax();
   renderMissions();
+  enqueueSync(m.id);                       // centralisation (si activée)
   if (map) { shownMission = m; follow = false; chart.live = false; chart.span = 0; chart.end = 0; selectSample(null); mapRenderMission(true); fitMission(m); renderMapButtons(); }
   renderItems();
   showReport(m);
@@ -2358,6 +2372,7 @@ async function resumeEndedMission(id) {
   const m = await db.get(id);
   if (!m) return;
   m.end = null;
+  delete m.syncedAt;                        // reprise : sera recentralisée à la prochaine fin
   if (!m.annotations) m.annotations = [];
   mission = m;
   store.set('insp_active', m.id);
@@ -2380,6 +2395,68 @@ async function resumeEndedMission(id) {
 }
 
 /* =====================================================================
+   Centralisation des résultats (Supabase) — envoi à la fin de chaque mission,
+   avec file d'attente hors ligne. Ne change rien au stockage local.
+   ===================================================================== */
+const SYNC_Q = 'insp_syncQueue';
+let syncing = false;
+const syncOn = () => !!(SYNC_URL && SYNC_KEY);
+// identifiant du téléphone (généré une fois) pour distinguer les appareils dans la base
+const deviceTag = (() => {
+  let d = store.get('insp_deviceTag', '');
+  if (!d) { d = 'tel-' + Math.random().toString(36).slice(2, 6); store.set('insp_deviceTag', d); }
+  return d;
+})();
+function buildSyncPayload(m) {
+  const strip = arr => (arr || []).map(x => SYNC_PHOTOS ? x : { ...x, photos: (x.photos || []).map(p => ({ w: p.w, h: p.h })) });
+  const data = { ...m, indices: strip(m.indices), annotations: strip(m.annotations) };
+  return {
+    mission_id: m.id, device: deviceTag, name: m.name,
+    started_at: m.start ? new Date(m.start).toISOString() : null,
+    ended_at: m.end ? new Date(m.end).toISOString() : null,
+    max_conc: m.maxConc || 0,
+    alarms: (m.alarms || []).length, indices: (m.indices || []).length, annotations: (m.annotations || []).length,
+    data
+  };
+}
+function dequeueSync(id) { store.set(SYNC_Q, store.get(SYNC_Q, []).filter(x => x !== id)); }
+function enqueueSync(id) {
+  if (!syncOn()) return;
+  const q = store.get(SYNC_Q, []);
+  if (!q.includes(id)) { q.push(id); store.set(SYNC_Q, q); }
+  flushSync();
+}
+async function flushSync() {
+  if (!syncOn() || syncing || navigator.onLine === false) return;
+  const q = store.get(SYNC_Q, []);
+  if (!q.length) return;
+  syncing = true;
+  try {
+    for (const id of [...q]) {
+      const m = await db.get(id);
+      if (!m) { dequeueSync(id); continue; }           // mission supprimée entre-temps
+      try {
+        // En-têtes compatibles ancienne clé (anon, jeton « eyJ… ») et nouvelle clé (« sb_publishable_… ») :
+        // apikey toujours ; Authorization Bearer seulement si la clé est un jeton JWT.
+        const headers = { apikey: SYNC_KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' };
+        if (/^eyJ/.test(SYNC_KEY)) headers.Authorization = 'Bearer ' + SYNC_KEY;
+        const r = await fetch(SYNC_URL + '/rest/v1/' + SYNC_TABLE, {
+          method: 'POST', headers,
+          body: JSON.stringify(buildSyncPayload(m))
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        m.syncedAt = Date.now();
+        await db.put(m).catch(() => {});
+        dequeueSync(id);
+        log(t('logSyncOk', { n: m.name }));
+        renderMissions();
+      } catch (e) { log(t('logSyncErr', { e: e.message })); break; }   // on garde la file et on retentera
+    }
+  } finally { syncing = false; }
+}
+try { window.addEventListener('online', flushSync); } catch {}
+
+/* =====================================================================
    Liste des missions
    ===================================================================== */
 async function renderMissions() {
@@ -2391,7 +2468,7 @@ async function renderMissions() {
     <div class="item">
       <div class="grow">
         <div class="t">${esc(m.name)}</div>
-        <div class="s">${fmtDate(m.start)} · ${fmtDur(m.end - m.start)} · ${t('counts', { a: m.alarms.length, i: m.indices.length })}${m.annotations && m.annotations.length ? t('countsAnnot', { n: m.annotations.length }) : ''}${m.sentAt ? ` · <span style="color:var(--ok)">${t('sentShort')}</span>` : ''}</div>
+        <div class="s">${fmtDate(m.start)} · ${fmtDur(m.end - m.start)} · ${t('counts', { a: m.alarms.length, i: m.indices.length })}${m.annotations && m.annotations.length ? t('countsAnnot', { n: m.annotations.length }) : ''}${m.sentAt ? ` · <span style="color:var(--ok)">${t('sentShort')}</span>` : ''}${m.syncedAt ? ` · <span style="color:var(--info)">${t('syncedShort')}</span>` : ''}</div>
         <div class="s">${t('distance')}${SEP}${fmtDist(trackDist(m.track))}${m.device && m.device['Série'] ? ` · ${t('dev.Série')} ${esc(m.device['Série'])}` : ''}</div>
       </div>
       <button class="small sec" data-map="${m.id}">${t('map')}</button>
@@ -3036,6 +3113,7 @@ renderDevices();
 renderMissions();
 initMap();
 resumeMission();
+try { flushSync(); } catch {}            // centralisation : renvoi des missions en attente
 try { navigator.permissions.query({ name: 'geolocation' }).then(r => { if (r.state === 'granted') { startGeo(); renderMapButtons(); } }); } catch {}
 </script>
 </body>
